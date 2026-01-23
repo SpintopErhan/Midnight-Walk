@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import GameCanvas from './components/GameCanvas';
-import UIOverlay from './components/UIOverlay';
-import { GameState, Player, StreetLamp, StreetProp, PropType, Enemy, Pit, GoldCoin, Casing, CollectingCoin, BloodParticle, RainParticle } from './types';
+import GameCanvas from './components/GameCanvas.tsx';
+import UIOverlay from './components/UIOverlay.tsx';
+import { GameState, Player, StreetLamp, StreetProp, PropType, Enemy, Pit, GoldCoin, Casing, CollectingCoin, BloodParticle, RainParticle } from './types.ts';
 
 const ATMOSPHERIC_MESSAGES = [
   "The shadows are whispering secrets tonight.",
@@ -32,7 +31,7 @@ const ATMOSPHERIC_MESSAGES = [
 const RAIN_COUNT = 150;
 
 const getFreshPlayer = (): Player => ({
-  pos: { x: 300, y: 0 }, // Start under the first lamp
+  pos: { x: 300, y: 0 },
   vel: { x: 0, y: 0 },
   hp: 100,
   width: 30,
@@ -98,8 +97,8 @@ const generateInitialGameState = (): GameState => {
 
   const rain: RainParticle[] = Array.from({ length: RAIN_COUNT }, (_, i) => ({
     id: `rain-${i}`,
-    x: Math.random() * window.innerWidth,
-    y: Math.random() * window.innerHeight,
+    x: Math.random() * (typeof window !== 'undefined' ? window.innerWidth : 1000),
+    y: Math.random() * (typeof window !== 'undefined' ? window.innerHeight : 800),
     speed: 10 + Math.random() * 8,
     len: 5 + Math.random() * 10
   }));
@@ -236,7 +235,6 @@ const App: React.FC = () => {
         const now = Date.now();
         const windX = -2.5;
 
-        // Lightning Logic
         if (nextLightningIntensity > 0) {
           nextLightningIntensity -= 0.05 * dt;
         } else if (Math.random() < 0.0015 * dt) {
@@ -245,7 +243,6 @@ const App: React.FC = () => {
 
         let firedThisFrame = false;
 
-        // Lamp Flickering Logic
         nextLamps = nextLamps.map(lamp => {
           if (!lamp.isBroken) return lamp;
           let newIntensity = lamp.intensity;
@@ -257,9 +254,8 @@ const App: React.FC = () => {
           return { ...lamp, intensity: Math.max(0, Math.min(0.9, newIntensity)) };
         });
 
-        // Rain Update
-        const sW = window.innerWidth;
-        const sH = window.innerHeight;
+        const sW = typeof window !== 'undefined' ? window.innerWidth : 1000;
+        const sH = typeof window !== 'undefined' ? window.innerHeight : 800;
         nextRain = nextRain.map(r => {
           let nx = r.x + windX * dt;
           let ny = r.y + r.speed * dt;
@@ -281,17 +277,15 @@ const App: React.FC = () => {
           nextPlayer.flashlightBattery = Math.min(100, nextPlayer.flashlightBattery + batteryChangeRate);
         }
 
-        // --- SHOOTING (Machine Gun logic: cooldown 7 frames for faster firing) ---
         if (shootCooldown.current > 0) shootCooldown.current -= dt;
         if (isMouseDown.current && shootCooldown.current <= 0) {
           nextMuzzleFlash = 1.0;
-          shootCooldown.current = 7; // Faster fire rate for "machine gun" feel
+          shootCooldown.current = 7;
           firedThisFrame = true;
           const bulletRange = 600;
           const bulletDir = nextPlayer.direction === 'right' ? 1 : -1;
           const playerX = nextPlayer.pos.x;
 
-          // Add Casing
           nextCasings.push({
             id: `casing-${now}-${Math.random()}`,
             x: playerX + (nextPlayer.direction === 'right' ? nextPlayer.width : 0),
@@ -308,8 +302,6 @@ const App: React.FC = () => {
           let hitPos: number = 0;
           let hitY: number = 0;
 
-          // Only collide with props if the player is at ground level (y approx 0)
-          // Jumping or being on a prop (pos.y < -5) means bullets fly OVER the props
           if (nextPlayer.pos.y > -5) {
             for (const prop of prev.props) {
               const dist = bulletDir === 1 ? prop.x - playerX : playerX - (prop.x + prop.width);
@@ -381,21 +373,9 @@ const App: React.FC = () => {
               }
               return enemy;
             }).filter(e => e.hp > 0);
-          } else if (hitType === 'prop' && firedThisFrame) {
-            nextFloatingTexts.push({
-                id: `prop-hit-${Math.random()}`,
-                x: hitPos,
-                y: -15,
-                vx: (Math.random() - 0.5),
-                vy: -1,
-                text: "*",
-                opacity: 0.8,
-                color: '#94a3b8'
-            });
           }
         }
 
-        // Particle Physics
         nextCasings = nextCasings.map(c => {
           const updated = { ...c, vel: { ...c.vel } };
           updated.vel.y += gravity * dt;
@@ -426,8 +406,7 @@ const App: React.FC = () => {
           return updated;
         }).filter(bp => bp.life > 0);
 
-        // Coins Physics
-        const groundY = window.innerHeight * 0.75;
+        const groundLevelY = sH * 0.75;
         nextCoins = nextCoins.map(coin => {
           const updatedCoin = { ...coin, vel: { ...coin.vel } };
           updatedCoin.vel.y += gravity * 0.8 * dt;
@@ -467,7 +446,7 @@ const App: React.FC = () => {
               id: coin.id,
               screenPos: { 
                 x: coin.x - nextWorldOffset, 
-                y: groundY + coin.y - 10 
+                y: groundLevelY + coin.y - 10 
               },
               value: coin.value,
               progress: 0
@@ -494,7 +473,6 @@ const App: React.FC = () => {
           };
         }).filter(Boolean);
 
-        // Enemy AI
         nextEnemies = nextEnemies.map(enemy => {
           const updatedEnemy = { ...enemy, vel: { ...enemy.vel } };
           const distToPlayer = updatedEnemy.x - nextPlayer.pos.x;
@@ -603,7 +581,6 @@ const App: React.FC = () => {
 
         if (nextMuzzleFlash > 0) nextMuzzleFlash -= 0.15 * dt;
         
-        // Character movement logic
         let moveX = 0;
         if (keysPressed.current['ArrowRight'] || keysPressed.current['KeyD'] || keysPressed.current['MoveRight']) {
           moveX += speed;
@@ -671,15 +648,13 @@ const App: React.FC = () => {
             setDeathReason('falling');
         }
 
-        // --- JUMPING (Responsive single-click logic) ---
         const jumpIntent = keysPressed.current['Space'] || keysPressed.current['ArrowUp'] || keysPressed.current['KeyW'] || jumpBuffered.current;
         if (jumpIntent && (Math.abs(nextPlayer.pos.y - groundLevel) < 2)) {
           nextPlayer.vel.y = jumpForce;
-          jumpBuffered.current = false; // Reset buffer after jump
+          jumpBuffered.current = false;
         }
 
-        const screenWidth = window.innerWidth;
-        const scrollThreshold = screenWidth * 0.4;
+        const scrollThreshold = sW * 0.4;
         if (nextPlayer.pos.x - nextWorldOffset > scrollThreshold) {
           nextWorldOffset = nextPlayer.pos.x - scrollThreshold;
         } else if (nextPlayer.pos.x - nextWorldOffset < 100) {
