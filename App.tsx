@@ -174,9 +174,6 @@ const App: React.FC = () => {
   const lastTime = useRef<number>(performance.now());
   const requestRef = useRef<number>(0);
 
-  // Define global function for index.html onclick
-  const toggleFullscreenRef = useRef<() => Promise<void>>(null);
-
   useEffect(() => {
     const savedControl = localStorage.getItem(STORAGE_KEY_CONTROL);
     if (savedControl === 'touch' || savedControl === 'keyboard') {
@@ -192,7 +189,6 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Update body class for touch/orientation detection in CSS
   useEffect(() => {
     if (controlMode === 'touch') {
         document.body.classList.add('mobile-touch-mode');
@@ -201,26 +197,29 @@ const App: React.FC = () => {
     }
   }, [controlMode]);
 
-  const toggleFullscreen = useCallback(async () => {
-    if (!document.fullscreenElement) {
-      try {
-        await document.documentElement.requestFullscreen();
+  const ensureFullscreen = useCallback(async () => {
+    try {
+        if (!document.fullscreenElement) {
+            await document.documentElement.requestFullscreen().catch(() => {});
+        }
         if ('orientation' in screen && (screen.orientation as any).lock) {
             await (screen.orientation as any).lock('landscape').catch(() => {});
         }
-      } catch (err) {
-        console.warn(`Fullscreen/Orientation request failed: ${err}`);
-      }
-    } else {
-      document.exitFullscreen();
-    }
+    } catch (e) {}
   }, []);
 
-  // Expose toggleFullscreen to window for the index.html overlay click
+  const toggleFullscreen = useCallback(async () => {
+    if (!document.fullscreenElement) {
+      await ensureFullscreen();
+    } else {
+      await document.exitFullscreen().catch(() => {});
+    }
+  }, [ensureFullscreen]);
+
   useEffect(() => {
-    (window as any).requestGameFullscreen = toggleFullscreen;
+    (window as any).requestGameFullscreen = ensureFullscreen;
     return () => { delete (window as any).requestGameFullscreen; };
-  }, [toggleFullscreen]);
+  }, [ensureFullscreen]);
 
   const handleUpdateControlMode = (mode: 'keyboard' | 'touch') => {
     setControlMode(mode);
@@ -236,9 +235,9 @@ const App: React.FC = () => {
   };
 
   const handleStartGame = useCallback(async () => {
-    await toggleFullscreen().catch(() => {});
+    await ensureFullscreen();
     setGameStarted(true);
-  }, [toggleFullscreen]);
+  }, [ensureFullscreen]);
 
   const handleRestart = useCallback((e?: React.MouseEvent | React.TouchEvent) => {
     if (e) {
