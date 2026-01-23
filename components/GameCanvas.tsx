@@ -313,10 +313,21 @@ const GameCanvas: React.FC<Props> = ({ gameState }) => {
         }
       });
 
+      // Flashlight Flicker Logic
+      let flashlightIntensity = 1.0;
+      if (player.isFlashlightOn && player.flashlightBattery < 20) {
+        const batteryPct = player.flashlightBattery / 20; // 1.0 to 0.0
+        // Intensify flicker chance as battery drops
+        if (Math.random() < (1 - batteryPct) * 0.4) {
+          flashlightIntensity = 0.2 + Math.random() * 0.5;
+        }
+      }
+
       if (player.isFlashlightOn) {
         const beamOriginX = player.direction === 'right' ? fHandX + fWidth : fHandX; const beamOriginY = fHandY + fHeight / 2;
         const spillGrad = lctx.createRadialGradient(beamOriginX, beamOriginY, 0, beamOriginX, beamOriginY, 50);
-        spillGrad.addColorStop(0, 'rgba(255, 255, 255, 0.5)'); spillGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        spillGrad.addColorStop(0, `rgba(255, 255, 255, ${0.5 * flashlightIntensity})`); 
+        spillGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
         lctx.fillStyle = spillGrad; lctx.beginPath(); lctx.arc(beamOriginX, beamOriginY, 50, 0, Math.PI * 2); lctx.fill();
         
         const beamLength = 350; 
@@ -325,7 +336,8 @@ const GameCanvas: React.FC<Props> = ({ gameState }) => {
         const dirF = player.direction === 'right' ? 1 : -1;
         
         const flGrad = lctx.createRadialGradient(beamOriginX, beamOriginY, 0, beamOriginX, beamOriginY, beamLength);
-        flGrad.addColorStop(0, 'rgba(255, 255, 255, 0.9)'); flGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        flGrad.addColorStop(0, `rgba(255, 255, 255, ${0.9 * flashlightIntensity})`); 
+        flGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
         lctx.fillStyle = flGrad; 
         
         lctx.beginPath();
@@ -414,7 +426,7 @@ const GameCanvas: React.FC<Props> = ({ gameState }) => {
           const dx = sx - beamOriginX; const dy = sy - beamOriginY; const dist = Math.sqrt(dx * dx + dy * dy);
           const angle = Math.atan2(dy, dx); const dirF = player.direction === 'right' ? 0 : Math.PI;
           const angleDiff = Math.abs(angle - dirF);
-          if (dist < 350 && (angleDiff < 0.5 || angleDiff > Math.PI * 2 - 0.5)) lightVal = Math.max(lightVal, (1 - dist / 350) * 0.8);
+          if (dist < 350 && (angleDiff < 0.5 || angleDiff > Math.PI * 2 - 0.5)) lightVal = Math.max(lightVal, (1 - dist / 350) * 0.8 * flashlightIntensity);
         }
         const alpha = 0.05 + lightVal * 0.4; const brightness = 100 + lightVal * 155;
         ctx.strokeStyle = `rgba(${brightness}, ${brightness}, ${brightness + 20}, ${alpha})`; ctx.lineWidth = 1;
@@ -455,7 +467,8 @@ const GameCanvas: React.FC<Props> = ({ gameState }) => {
         const beamEndHalfWidth = 150; 
         const beamStartHalfWidth = 5; 
         const fHaze = ctx.createLinearGradient(beamOriginX, beamOriginY, beamOriginX + beamLength * dirF, beamOriginY);
-        fHaze.addColorStop(0, 'rgba(255, 255, 255, 0.08)'); fHaze.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        fHaze.addColorStop(0, `rgba(255, 255, 255, ${0.08 * flashlightIntensity})`); 
+        fHaze.addColorStop(1, 'rgba(255, 255, 255, 0)');
         ctx.fillStyle = fHaze; 
         ctx.beginPath(); 
         ctx.moveTo(beamOriginX, beamOriginY - beamStartHalfWidth);

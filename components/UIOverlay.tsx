@@ -62,6 +62,10 @@ const UIOverlay: React.FC<Props> = ({
     { id: 'damage', name: 'Lead Bullets', cost: 200, desc: '+5 Bullet Damage', icon: '💥' },
   ];
 
+  // Calculate percentages safely
+  const hpPercent = Math.max(0, Math.min(100, (playerHp / playerMaxHp) * 100));
+  const batteryPercent = Math.max(0, Math.min(100, (flashlightBattery / flashlightMaxBattery) * 100));
+
   return (
     <div className="absolute inset-0 pointer-events-none flex flex-col font-creepster text-white select-none overflow-hidden">
       
@@ -81,7 +85,10 @@ const UIOverlay: React.FC<Props> = ({
         <div className="flex flex-col items-center w-24">
           <span className="text-[10px] tracking-widest text-red-500 opacity-60 uppercase">Health</span>
           <div className="w-full h-1.5 bg-red-950 rounded-full mt-1 border border-red-500/20 overflow-hidden">
-            <div className="h-full bg-red-600 transition-all duration-300" style={{ width: `${(playerHp / playerMaxHp) * 100}%` }}></div>
+            <div 
+              className="h-full bg-red-600 transition-[width] duration-150 ease-out" 
+              style={{ width: `${hpPercent}%` }}
+            ></div>
           </div>
           <p className={`text-xs font-bold tabular-nums mt-0.5 ${playerHp < playerMaxHp * 0.3 ? 'text-red-600 animate-pulse' : 'text-red-400'}`}>{playerHp}</p>
         </div>
@@ -89,7 +96,10 @@ const UIOverlay: React.FC<Props> = ({
         <div className="flex flex-col items-center w-24">
           <span className="text-[10px] tracking-widest text-blue-200 opacity-60 uppercase">Battery</span>
           <div className="w-full h-1.5 bg-blue-950 rounded-full mt-1 border border-blue-500/20 overflow-hidden">
-            <div className={`h-full bg-blue-400 transition-all duration-300 ${isFlashlightOn ? 'animate-pulse' : ''}`} style={{ width: `${(flashlightBattery / flashlightMaxBattery) * 100}%` }}></div>
+            <div 
+              className={`h-full bg-blue-400 transition-[width] duration-150 ease-out ${isFlashlightOn ? 'animate-pulse' : ''}`} 
+              style={{ width: `${batteryPercent}%` }}
+            ></div>
           </div>
           <p className={`text-xs font-bold tabular-nums mt-0.5 ${flashlightBattery < flashlightMaxBattery * 0.2 ? 'text-blue-500 animate-pulse' : 'text-blue-200'}`}>{Math.floor(flashlightBattery)}</p>
         </div>
