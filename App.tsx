@@ -174,6 +174,9 @@ const App: React.FC = () => {
   const lastTime = useRef<number>(performance.now());
   const requestRef = useRef<number>(0);
 
+  // Define global function for index.html onclick
+  const toggleFullscreenRef = useRef<() => Promise<void>>(null);
+
   useEffect(() => {
     const savedControl = localStorage.getItem(STORAGE_KEY_CONTROL);
     if (savedControl === 'touch' || savedControl === 'keyboard') {
@@ -189,27 +192,14 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // Update body class for touch/orientation detection
+  // Update body class for touch/orientation detection in CSS
   useEffect(() => {
     if (controlMode === 'touch') {
-        document.body.classList.add('mobile-touch');
+        document.body.classList.add('mobile-touch-mode');
     } else {
-        document.body.classList.remove('mobile-touch');
+        document.body.classList.remove('mobile-touch-mode');
     }
   }, [controlMode]);
-
-  const handleUpdateControlMode = (mode: 'keyboard' | 'touch') => {
-    setControlMode(mode);
-    localStorage.setItem(STORAGE_KEY_CONTROL, mode);
-  };
-
-  const handleToggleMute = () => {
-    setIsMuted(prev => {
-      const newVal = !prev;
-      localStorage.setItem(STORAGE_KEY_MUTED, String(newVal));
-      return newVal;
-    });
-  };
 
   const toggleFullscreen = useCallback(async () => {
     if (!document.fullscreenElement) {
@@ -226,22 +216,29 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // Expose toggleFullscreen to window for the index.html overlay click
+  useEffect(() => {
+    (window as any).requestGameFullscreen = toggleFullscreen;
+    return () => { delete (window as any).requestGameFullscreen; };
+  }, [toggleFullscreen]);
+
+  const handleUpdateControlMode = (mode: 'keyboard' | 'touch') => {
+    setControlMode(mode);
+    localStorage.setItem(STORAGE_KEY_CONTROL, mode);
+  };
+
+  const handleToggleMute = () => {
+    setIsMuted(prev => {
+      const newVal = !prev;
+      localStorage.setItem(STORAGE_KEY_MUTED, String(newVal));
+      return newVal;
+    });
+  };
+
   const handleStartGame = useCallback(async () => {
-    // Attempt fullscreen and orientation lock on start
-    try {
-        if (!document.fullscreenElement) {
-            await document.documentElement.requestFullscreen().catch(() => {});
-        }
-        // Try to lock orientation to landscape if supported
-        if ('orientation' in screen && (screen.orientation as any).lock) {
-            await (screen.orientation as any).lock('landscape').catch((e: any) => {
-                console.log("Orientation lock failed (might be system locked):", e);
-            });
-        }
-    } catch (e) {}
-    
+    await toggleFullscreen().catch(() => {});
     setGameStarted(true);
-  }, []);
+  }, [toggleFullscreen]);
 
   const handleRestart = useCallback((e?: React.MouseEvent | React.TouchEvent) => {
     if (e) {

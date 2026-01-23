@@ -49,11 +49,17 @@
             color: #ef4444;
             text-align: center;
             padding: 2rem;
+            cursor: pointer;
         }
 
-        @media (orientation: portrait) {
-            .mobile-touch #orientation-warning {
-                display: flex;
+        /* Only show if control mode is touch AND in portrait */
+        .mobile-touch-mode #orientation-warning {
+            display: flex;
+        }
+
+        @media (orientation: landscape) {
+            .mobile-touch-mode #orientation-warning {
+                display: none;
             }
         }
         
@@ -68,6 +74,21 @@
             0% { transform: rotate(0deg); }
             50% { transform: rotate(-90deg); }
             100% { transform: rotate(0deg); }
+        }
+
+        .tap-hint {
+            margin-top: 20px;
+            font-family: 'Inter', sans-serif;
+            font-size: 10px;
+            letter-spacing: 0.3em;
+            color: rgba(255,255,255,0.3);
+            text-transform: uppercase;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.6; }
         }
     </style>
 <script type="importmap">
@@ -85,13 +106,14 @@
     <div id="root"></div>
     
     <!-- Portrait Warning -->
-    <div id="orientation-warning">
+    <div id="orientation-warning" onclick="window.requestGameFullscreen()">
         <svg class="rotate-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
             <path d="M12 18h.01"></path>
         </svg>
-        <h2 class="font-creepster text-3xl mb-4 uppercase tracking-widest">Landscape Required</h2>
+        <h2 class="font-creepster text-3xl mb-2 uppercase tracking-widest">Landscape Required</h2>
         <p class="font-inter text-xs text-white/40 uppercase tracking-[0.2em]">Please rotate your device to play</p>
+        <div class="tap-hint">Tap screen to enable fullscreen</div>
     </div>
 
     <script type="module" src="./index.tsx"></script>
