@@ -30,6 +30,7 @@ const ATMOSPHERIC_MESSAGES = [
 ];
 
 const RAIN_COUNT = 150;
+const STORAGE_KEY = 'midnight-walk-control-mode';
 
 const getFreshPlayer = (): Player => ({
   pos: { x: 300, y: 0 },
@@ -129,7 +130,9 @@ const App: React.FC = () => {
   const [currentMessage, setCurrentMessage] = useState<string>(ATMOSPHERIC_MESSAGES[0]);
   const [deathReason, setDeathReason] = useState<'enemy' | 'falling' | null>(null);
   const [gameStarted, setGameStarted] = useState<boolean>(false);
+  const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
+  const [controlMode, setControlMode] = useState<'keyboard' | 'touch'>('keyboard');
   
   const keysPressed = useRef<{ [key: string]: boolean }>({});
   const jumpBuffered = useRef<boolean>(false);
@@ -139,7 +142,23 @@ const App: React.FC = () => {
   const lastTime = useRef<number>(performance.now());
   const requestRef = useRef<number>(0);
 
-  const handleRestart = (e?: React.MouseEvent | React.TouchEvent) => {
+  // Load control mode from local storage
+  useEffect(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved === 'touch' || saved === 'keyboard') {
+      setControlMode(saved as 'touch' | 'keyboard');
+    } else {
+      const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+      setControlMode(isTouch ? 'touch' : 'keyboard');
+    }
+  }, []);
+
+  const handleUpdateControlMode = (mode: 'keyboard' | 'touch') => {
+    setControlMode(mode);
+    localStorage.setItem(STORAGE_KEY, mode);
+  };
+
+  const handleRestart = useCallback((e?: React.MouseEvent | React.TouchEvent) => {
     if (e) {
       e.preventDefault();
       e.stopPropagation();
@@ -153,7 +172,14 @@ const App: React.FC = () => {
     setGameState(generateInitialGameState());
     setCurrentMessage(ATMOSPHERIC_MESSAGES[Math.floor(Math.random() * ATMOSPHERIC_MESSAGES.length)]);
     setDeathReason(null);
-  };
+    setIsMenuOpen(false);
+  }, []);
+
+  const handleMainMenu = useCallback(() => {
+    setGameStarted(false);
+    setIsMenuOpen(false);
+    setGameState(generateInitialGameState());
+  }, []);
 
   const toggleFlashlight = useCallback(() => {
     setGameState(prev => {
@@ -207,12 +233,15 @@ const App: React.FC = () => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       keysPressed.current[e.code] = true;
-      if (e.code === 'KeyF' && gameState.player.hp > 0 && gameStarted) {
+      if (e.code === 'KeyF' && gameState.player.hp > 0 && gameStarted && !isMenuOpen) {
         toggleFlashlight();
+      }
+      if (e.code === 'Escape' && gameStarted && gameState.player.hp > 0) {
+        setIsMenuOpen(prev => !prev);
       }
     };
     const handleKeyUp = (e: KeyboardEvent) => { keysPressed.current[e.code] = false; };
-    const handleMouseDown = () => { if (gameStarted) isMouseDown.current = true; };
+    const handleMouseDown = () => { if (gameStarted && !isMenuOpen) isMouseDown.current = true; };
     const handleMouseUp = () => { isMouseDown.current = false; };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -226,7 +255,7 @@ const App: React.FC = () => {
       window.removeEventListener('mousedown', handleMouseDown);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [gameState.player.hp, toggleFlashlight, gameStarted]);
+  }, [gameState.player.hp, toggleFlashlight, gameStarted, isMenuOpen]);
 
   useEffect(() => {
     const update = (time: number) => {
@@ -234,7 +263,8 @@ const App: React.FC = () => {
       lastTime.current = time;
 
       setGameState(prev => {
-        if (!gameStarted || prev.player.hp <= 0) {
+        // If the game hasn't started, player is dead, or menu is open, only update atmosphere (rain, lights)
+        if (!gameStarted || prev.player.hp <= 0 || isMenuOpen) {
             const sW = typeof window !== 'undefined' ? window.innerWidth : 1000;
             const sH = typeof window !== 'undefined' ? window.innerHeight : 800;
             const windX = -2.5;
@@ -256,7 +286,14 @@ const App: React.FC = () => {
               return { ...r, x: nx, y: ny };
             });
 
-            return { ...prev, rain: nextRain, lamps: nextLamps };
+            let nextLightningIntensity = prev.lightningIntensity;
+            if (nextLightningIntensity > 0) {
+              nextLightningIntensity -= 0.05 * dt;
+            } else if (Math.random() < 0.0015 * dt) {
+              nextLightningIntensity = 1.0;
+            }
+
+            return { ...prev, rain: nextRain, lamps: nextLamps, lightningIntensity: nextLightningIntensity };
         }
 
         const nextPlayer = { ...prev.player, pos: { ...prev.player.pos }, vel: { ...prev.player.vel } };
@@ -741,14 +778,18 @@ const App: React.FC = () => {
 
     requestRef.current = requestAnimationFrame(update);
     return () => cancelAnimationFrame(requestRef.current);
-  }, [updateAtmosphere, toggleFlashlight, gameStarted]);
+  }, [updateAtmosphere, toggleFlashlight, gameStarted, isMenuOpen]);
 
   return (
     <div className="relative w-screen h-screen-dynamic bg-black overflow-hidden cursor-crosshair">
       <GameCanvas gameState={gameState} />
       
       {!gameStarted ? (
-        <StartScreen onStart={() => setGameStarted(true)} />
+        <StartScreen 
+          onStart={() => setGameStarted(true)} 
+          controlMode={controlMode} 
+          onUpdateControlMode={handleUpdateControlMode}
+        />
       ) : (
         <>
           <UIOverlay 
@@ -760,8 +801,13 @@ const App: React.FC = () => {
             distance={Math.max(0, Math.floor((gameState.player.pos.x - 100) / 10))} 
             isFlashlightOn={gameState.player.isFlashlightOn}
             isFullscreen={isFullscreen}
+            controlMode={controlMode}
+            isMenuOpen={isMenuOpen}
+            onToggleMenu={() => setIsMenuOpen(p => !p)}
             onToggleFullscreen={toggleFullscreen}
             onControl={handleTouchControl}
+            onRestart={handleRestart}
+            onMainMenu={handleMainMenu}
           />
           
           {gameState.player.hp <= 0 && (
@@ -777,13 +823,21 @@ const App: React.FC = () => {
                   <p className="text-[10px] sm:text-sm md:text-xl mb-10 tracking-[0.2em] opacity-40 uppercase">Your soul belongs to the shadows now</p>
                 </>
               )}
-              <button 
-                onClick={() => handleRestart()}
-                onTouchEnd={() => handleRestart()}
-                className="px-10 py-3.5 sm:px-14 sm:py-4 bg-red-950/30 border-2 border-red-600/40 rounded-full text-sm sm:text-xl uppercase tracking-widest font-black hover:bg-red-800/40 hover:border-red-500 transition-all active:scale-90 pointer-events-auto shadow-[0_0_30px_rgba(255,0,0,0.15)]"
-              >
-                Try Again
-              </button>
+              <div className="flex flex-col gap-4">
+                <button 
+                  onClick={() => handleRestart()}
+                  onTouchEnd={() => handleRestart()}
+                  className="px-10 py-3.5 sm:px-14 sm:py-4 bg-red-950/30 border-2 border-red-600/40 rounded-full text-sm sm:text-xl uppercase tracking-widest font-black hover:bg-red-800/40 hover:border-red-500 transition-all active:scale-90 pointer-events-auto shadow-[0_0_30px_rgba(255,0,0,0.15)]"
+                >
+                  Try Again
+                </button>
+                <button 
+                  onClick={handleMainMenu}
+                  className="px-8 py-2 border border-white/10 rounded-full text-white/40 text-[10px] font-black tracking-[0.3em] uppercase hover:text-white hover:bg-white/10 transition-all pointer-events-auto"
+                >
+                  Return to Main Menu
+                </button>
+              </div>
             </div>
           )}
         </>

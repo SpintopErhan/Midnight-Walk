@@ -1,10 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 
 interface Props {
   onStart: () => void;
+  controlMode: 'keyboard' | 'touch';
+  onUpdateControlMode: (mode: 'keyboard' | 'touch') => void;
 }
 
-const StartScreen: React.FC<Props> = ({ onStart }) => {
+const StartScreen: React.FC<Props> = ({ onStart, controlMode, onUpdateControlMode }) => {
+  const [showSettings, setShowSettings] = useState(false);
+
   return (
     <div className="absolute inset-0 flex flex-col items-center justify-center z-[100] p-6 text-center">
       {/* Background Overlay for focus */}
@@ -19,56 +23,69 @@ const StartScreen: React.FC<Props> = ({ onStart }) => {
           Don't let the shadows catch you
         </p>
 
-        {/* Controls Guide */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 mb-16 max-w-2xl text-white/80 font-inter">
-          <div className="flex flex-col items-center space-y-2">
-            <span className="text-red-500/80 text-[10px] uppercase tracking-widest font-black">Movement</span>
-            <div className="flex gap-2">
-                <kbd className="px-3 py-1 bg-white/10 border border-white/20 rounded text-sm">WASD</kbd>
-                <kbd className="px-3 py-1 bg-white/10 border border-white/20 rounded text-sm">ARROWS</kbd>
-            </div>
-            <p className="text-xs opacity-50">Navigate the dark alley</p>
-          </div>
-          
-          <div className="flex flex-col items-center space-y-2">
-            <span className="text-red-500/80 text-[10px] uppercase tracking-widest font-black">Combat</span>
-            <div className="flex gap-2">
-                <kbd className="px-3 py-1 bg-white/10 border border-white/20 rounded text-sm">MOUSE</kbd>
-                <kbd className="px-3 py-1 bg-white/10 border border-white/20 rounded text-sm">TAP</kbd>
-            </div>
-            <p className="text-xs opacity-50">Fire your weapon</p>
-          </div>
+        {/* Settings View */}
+        {showSettings && (
+          <div className="bg-black/90 border border-white/10 p-8 rounded-2xl mb-12 w-full max-w-md animate-in fade-in slide-in-from-bottom-4 duration-300">
+            <h3 className="text-2xl font-creepster text-white mb-6 tracking-widest uppercase italic">Settings</h3>
+            
+            <div className="flex flex-col space-y-6">
+              <div className="flex flex-col items-start gap-2">
+                <span className="text-[10px] text-white/40 uppercase tracking-widest">Control Method</span>
+                <div className="flex w-full bg-white/5 p-1 rounded-lg border border-white/10">
+                  <button 
+                    onClick={() => onUpdateControlMode('keyboard')}
+                    className={`flex-1 py-2 rounded text-xs font-black tracking-widest uppercase transition-all ${controlMode === 'keyboard' ? 'bg-red-600 text-white shadow-[0_0_15px_rgba(220,38,38,0.5)]' : 'text-white/40 hover:text-white'}`}
+                  >
+                    Keyboard
+                  </button>
+                  <button 
+                    onClick={() => onUpdateControlMode('touch')}
+                    className={`flex-1 py-2 rounded text-xs font-black tracking-widest uppercase transition-all ${controlMode === 'touch' ? 'bg-red-600 text-white shadow-[0_0_15px_rgba(220,38,38,0.5)]' : 'text-white/40 hover:text-white'}`}
+                  >
+                    Touch
+                  </button>
+                </div>
+              </div>
 
-          <div className="flex flex-col items-center space-y-2">
-            <span className="text-red-500/80 text-[10px] uppercase tracking-widest font-black">Actions</span>
-            <div className="flex gap-2">
-                <kbd className="px-3 py-1 bg-white/10 border border-white/20 rounded text-sm">SPACE</kbd>
-                <kbd className="px-3 py-1 bg-white/10 border border-white/20 rounded text-sm">F</kbd>
+              <button 
+                onClick={() => setShowSettings(false)}
+                className="w-full py-3 border border-white/10 rounded-lg text-[10px] font-black tracking-[0.3em] uppercase hover:bg-white/5 transition-colors"
+              >
+                Back to Menu
+              </button>
             </div>
-            <p className="text-xs opacity-50">Jump & Toggle Flashlight</p>
           </div>
+        )}
 
-          <div className="flex flex-col items-center space-y-2">
-            <span className="text-red-500/80 text-[10px] uppercase tracking-widest font-black">Mobile</span>
-            <p className="text-xs opacity-70">Use the on-screen buttons</p>
-            <p className="text-[10px] opacity-40 uppercase tracking-tighter">Optimized for Landscape</p>
-          </div>
+        <div className="flex flex-col gap-6 items-center">
+          {!showSettings && (
+            <>
+              <button 
+                onClick={onStart}
+                onTouchEnd={(e) => { e.preventDefault(); onStart(); }}
+                className="group relative pointer-events-auto"
+              >
+                <div className="absolute -inset-1 bg-gradient-to-r from-red-900 to-red-600 rounded-full blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200"></div>
+                <div className="relative px-12 py-4 bg-black border-2 border-red-950 rounded-full text-white text-xl sm:text-2xl font-creepster tracking-widest uppercase hover:border-red-600 transition-colors shadow-2xl">
+                  Enter the Darkness
+                </div>
+              </button>
+
+              <button 
+                onClick={() => setShowSettings(true)}
+                className="px-8 py-2 bg-white/5 border border-white/10 rounded-full text-white/40 text-[10px] font-black tracking-[0.3em] uppercase hover:text-white hover:bg-white/10 transition-all pointer-events-auto"
+              >
+                Settings
+              </button>
+            </>
+          )}
         </div>
 
-        <button 
-          onClick={onStart}
-          onTouchEnd={(e) => { e.preventDefault(); onStart(); }}
-          className="group relative pointer-events-auto"
-        >
-          <div className="absolute -inset-1 bg-gradient-to-r from-red-900 to-red-600 rounded-full blur opacity-25 group-hover:opacity-75 transition duration-1000 group-hover:duration-200"></div>
-          <div className="relative px-12 py-4 bg-black border-2 border-red-950 rounded-full text-white text-xl sm:text-2xl font-creepster tracking-widest uppercase hover:border-red-600 transition-colors shadow-2xl">
-            Enter the Darkness
+        {!showSettings && (
+          <div className="mt-12 text-[10px] text-white/20 uppercase tracking-[0.5em] font-inter">
+            Version 2.7 • Developed for the Void
           </div>
-        </button>
-
-        <div className="mt-12 text-[10px] text-white/20 uppercase tracking-[0.5em] font-inter">
-          Version 2.5 • Developed for the Void
-        </div>
+        )}
       </div>
     </div>
   );
