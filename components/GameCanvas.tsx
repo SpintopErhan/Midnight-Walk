@@ -124,7 +124,7 @@ const GameCanvas: React.FC<Props> = ({ gameState }) => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       animationTime.current += 0.15;
       
-      const { player, lamps, billboards, props, pits, enemies, coins, collectingCoins, casings, bloodParticles, floatingTexts, rain, worldOffset, isMoving, muzzleFlash, lightningIntensity, screenShake } = gameState;
+      const { player, lamps, billboards, props, pits, enemies, upgradeStations, coins, collectingCoins, casings, bloodParticles, floatingTexts, rain, worldOffset, isMoving, muzzleFlash, lightningIntensity, screenShake } = gameState;
 
       // START SCREEN SHAKE
       ctx.save();
@@ -189,6 +189,17 @@ const GameCanvas: React.FC<Props> = ({ gameState }) => {
         const x = (i * 80) - (worldOffset % 80);
         ctx.beginPath(); ctx.moveTo(x, groundY); ctx.lineTo(x - 100, canvas.height); ctx.stroke();
       }
+
+      // Upgrade Stations (Vending Machines)
+      upgradeStations.forEach(station => {
+        const sx = station.x - worldOffset;
+        if (sx < -100 || sx > canvas.width + 100) return;
+        const w = 40, h = 80; const y = groundY - h;
+        ctx.fillStyle = '#111827'; ctx.fillRect(sx, y, w, h);
+        ctx.strokeStyle = '#374151'; ctx.lineWidth = 2; ctx.strokeRect(sx, y, w, h);
+        ctx.fillStyle = `rgba(59, 130, 246, ${0.4 + Math.sin(animationTime.current)*0.2})`; ctx.fillRect(sx + 5, y + 10, w - 10, 25);
+        ctx.fillStyle = '#f59e0b'; ctx.beginPath(); ctx.arc(sx + w/2, y + 55, 4, 0, Math.PI*2); ctx.fill();
+      });
 
       props.forEach(p => {
         const screenX = p.x - worldOffset;
@@ -330,6 +341,7 @@ const GameCanvas: React.FC<Props> = ({ gameState }) => {
         const bY = groundY - bH;
         if (x + bW < 0 || x > canvas.width) continue;
         
+        // Add const keyword to missing variable declarations
         const winW = 12; const winH = 18; const padding = 25; const gapX = 35; const gapY = 45; const cols = 4;
         const rows = Math.floor((bH - 60) / gapY);
         for (let r = 0; r < rows; r++) {

@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import GameCanvas from './components/GameCanvas.tsx';
 import UIOverlay from './components/UIOverlay.tsx';
 import StartScreen from './components/StartScreen.tsx';
-import { GameState, Player, StreetLamp, StreetProp, PropType, Enemy, Pit, GoldCoin, Casing, CollectingCoin, BloodParticle, RainParticle, Billboard } from './types.ts';
+import { GameState, Player, StreetLamp, StreetProp, PropType, Enemy, Pit, GoldCoin, Casing, CollectingCoin, BloodParticle, RainParticle, Billboard, UpgradeStation } from './types.ts';
 
 const ATMOSPHERIC_MESSAGES = [
   "The shadows are whispering secrets tonight.",
@@ -38,11 +38,15 @@ const getFreshPlayer = (): Player => ({
   pos: { x: 300, y: 0 },
   vel: { x: 0, y: 0 },
   hp: 100,
+  maxHp: 100,
   width: 30,
   height: 50,
   color: '#e2e8f0',
   isFlashlightOn: false,
   flashlightBattery: 100,
+  flashlightMaxBattery: 100,
+  flashlightChargeRate: 1.0,
+  damagePower: 10,
   direction: 'right'
 });
 
@@ -92,6 +96,20 @@ const generateInitialGameState = (): GameState => {
 
   props.sort((a, b) => a.x - b.x);
 
+  const upgradeStations: UpgradeStation[] = [];
+  for (let i = 1; i < 20; i++) {
+    let stationX = i * 3000;
+    // Check if station overlaps a pit and move if necessary
+    let safetyAttempts = 0;
+    while (safetyAttempts < 5) {
+      const overlapsPit = pits.some(pit => (stationX - 50 < pit.x + pit.width && stationX + 90 > pit.x));
+      if (!overlapsPit) break;
+      stationX += 200; // Shift right to find solid ground
+      safetyAttempts++;
+    }
+    upgradeStations.push({ id: `station-${i}`, x: stationX });
+  }
+
   const enemies: Enemy[] = [];
   for (let i = 3; i < 150; i++) {
     const lampPos = 300 + i * 600;
@@ -125,6 +143,7 @@ const generateInitialGameState = (): GameState => {
     props,
     pits,
     enemies,
+    upgradeStations,
     coins: [],
     collectingCoins: [],
     casings: [],
@@ -215,6 +234,30 @@ const App: React.FC = () => {
     });
   }, []);
 
+  const handleUpgrade = useCallback((type: string, cost: number) => {
+    setGameState(prev => {
+      if (prev.score < cost) return prev;
+      const nextPlayer = { ...prev.player };
+      switch(type) {
+        case 'hp':
+          nextPlayer.maxHp += 20;
+          nextPlayer.hp = nextPlayer.maxHp;
+          break;
+        case 'battery':
+          nextPlayer.flashlightMaxBattery += 50;
+          nextPlayer.flashlightBattery = nextPlayer.flashlightMaxBattery;
+          break;
+        case 'charge':
+          nextPlayer.flashlightChargeRate += 0.5;
+          break;
+        case 'damage':
+          nextPlayer.damagePower += 5;
+          break;
+      }
+      return { ...prev, score: prev.score - cost, player: nextPlayer };
+    });
+  }, []);
+
   const toggleFullscreen = useCallback(() => {
     if (!document.fullscreenElement) {
       document.documentElement.requestFullscreen().catch(err => {
@@ -282,7 +325,6 @@ const App: React.FC = () => {
       lastTime.current = time;
 
       setGameState(prev => {
-        // Screen shake decay always happens
         let nextScreenShake = prev.screenShake * 0.9 * (1 - (0.05 * dt));
         if (nextScreenShake < 0.1) nextScreenShake = 0;
 
@@ -370,20 +412,21 @@ const App: React.FC = () => {
           return { ...r, x: nx, y: ny };
         });
 
-        const batteryChangeRate = (100 / (10 * 60)) * dt;
+        const baseBatteryLossRate = (100 / (10 * 60)) * dt;
         if (nextPlayer.isFlashlightOn) {
-          nextPlayer.flashlightBattery = Math.max(0, nextPlayer.flashlightBattery - batteryChangeRate);
+          nextPlayer.flashlightBattery = Math.max(0, nextPlayer.flashlightBattery - baseBatteryLossRate);
           if (nextPlayer.flashlightBattery <= 0) {
             nextPlayer.isFlashlightOn = false;
           }
         } else {
-          nextPlayer.flashlightBattery = Math.min(100, nextPlayer.flashlightBattery + batteryChangeRate);
+          const rechargeRate = baseBatteryLossRate * 1.5 * nextPlayer.flashlightChargeRate;
+          nextPlayer.flashlightBattery = Math.min(nextPlayer.flashlightMaxBattery, nextPlayer.flashlightBattery + rechargeRate);
         }
 
         if (shootCooldown.current > 0) shootCooldown.current -= dt;
         if (isMouseDown.current && shootCooldown.current <= 0) {
           nextMuzzleFlash = 1.0;
-          nextScreenShake = Math.min(nextScreenShake + 4, 15); // Add shake on shoot
+          nextScreenShake = Math.min(nextScreenShake + 4, 15);
           shootCooldown.current = 7;
           firedThisFrame = true;
           const bulletRange = 600;
@@ -445,7 +488,7 @@ const App: React.FC = () => {
 
             nextEnemies = nextEnemies.map(enemy => {
               if (enemy.id === hitId) {
-                const newHp = enemy.hp - 10;
+                const newHp = enemy.hp - nextPlayer.damagePower;
                 if (newHp <= 0) {
                   const coinCount = Math.floor(Math.random() * 3) + 2;
                   for (let i = 0; i < coinCount; i++) {
@@ -664,7 +707,7 @@ const App: React.FC = () => {
           if (isColliding && now - updatedEnemy.lastAttackTime > 1000) {
             const dmg = 10 + Math.floor(Math.random() * 6);
             nextPlayer.hp = Math.max(0, nextPlayer.hp - dmg);
-            nextScreenShake = Math.min(nextScreenShake + 20, 40); // Large shake on damage
+            nextScreenShake = Math.min(nextScreenShake + 20, 40);
             const pushDir = nextPlayer.pos.x < updatedEnemy.x ? -1 : 1;
             nextPlayer.vel.x = pushDir * 10; 
             nextPlayer.vel.y = -7.5; 
@@ -799,6 +842,8 @@ const App: React.FC = () => {
     return () => cancelAnimationFrame(requestRef.current);
   }, [gameStarted, isMenuOpen]);
 
+  const nearestStation = gameState.upgradeStations.find(s => Math.abs(s.x - gameState.player.pos.x) < 100);
+
   return (
     <div className="relative w-screen h-screen-dynamic bg-black overflow-hidden cursor-crosshair">
       <GameCanvas gameState={gameState} />
@@ -815,7 +860,9 @@ const App: React.FC = () => {
         <>
           <UIOverlay 
             playerHp={gameState.player.hp}
+            playerMaxHp={gameState.player.maxHp}
             flashlightBattery={gameState.player.flashlightBattery}
+            flashlightMaxBattery={gameState.player.flashlightMaxBattery}
             score={gameState.score}
             distance={Math.max(0, Math.floor((gameState.player.pos.x - 300) / 10))} 
             isFlashlightOn={gameState.player.isFlashlightOn}
@@ -827,6 +874,9 @@ const App: React.FC = () => {
             onControl={handleTouchControl}
             onRestart={handleRestart}
             onMainMenu={handleMainMenu}
+            atUpgradeStation={!!nearestStation}
+            nearestStationScreenX={nearestStation ? (nearestStation.x - gameState.worldOffset + 20) : null}
+            onUpgrade={handleUpgrade}
           />
           
           {gameState.player.hp <= 0 && (

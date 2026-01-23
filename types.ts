@@ -8,11 +8,15 @@ export interface Player {
   pos: Vector2;
   vel: Vector2;
   hp: number;
+  maxHp: number;
   width: number;
   height: number;
   color: string;
   isFlashlightOn: boolean;
-  flashlightBattery: number; // 0 to 100
+  flashlightBattery: number; // 0 to max
+  flashlightMaxBattery: number;
+  flashlightChargeRate: number;
+  damagePower: number;
   direction: 'left' | 'right';
 }
 
@@ -41,6 +45,11 @@ export interface StreetProp {
 export interface Pit {
   x: number;
   width: number;
+}
+
+export interface UpgradeStation {
+  id: string;
+  x: number;
 }
 
 export interface GoldCoin {
@@ -116,6 +125,7 @@ export interface GameState {
   props: StreetProp[];
   pits: Pit[];
   enemies: Enemy[];
+  upgradeStations: UpgradeStation[];
   coins: GoldCoin[];
   collectingCoins: CollectingCoin[];
   casings: Casing[];
