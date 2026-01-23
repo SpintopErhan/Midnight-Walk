@@ -153,7 +153,7 @@ const UIOverlay: React.FC<Props> = ({
               <p className="text-[9px] text-red-500/60 uppercase tracking-widest mb-10 italic">2s timer after impact</p>
               <button 
                 onClick={() => onEquipWeapon('grenade')}
-                disabled={currentWeapon === 'grenade' || grenadeAmmo <= 0}
+                disabled={currentWeapon === 'grenade'}
                 className={`w-full py-4 rounded-xl text-xs font-black tracking-[0.2em] uppercase transition-all ${currentWeapon === 'grenade' ? 'bg-white/10 text-white/20 cursor-default' : (grenadeAmmo > 0 ? 'bg-red-600 hover:bg-red-500 text-white active:scale-95' : 'bg-black/50 text-white/20 cursor-not-allowed')}`}
               >
                 {grenadeAmmo <= 0 ? 'OUT OF AMMO' : (currentWeapon === 'grenade' ? 'EQUIPPED' : 'EQUIP')}
@@ -245,6 +245,7 @@ const UIOverlay: React.FC<Props> = ({
             <div className="flex flex-col items-end gap-3">
               <button className="w-14 h-14 bg-white/5 border border-white/10 rounded-full flex items-center justify-center active:bg-white/20 active:scale-[0.85]" onPointerDown={() => { onControl('Jump', true); setTimeout(() => onControl('Jump', false), 50); }}><span className="text-[10px] font-black tracking-widest uppercase">JUMP</span></button>
               <div className="flex items-center gap-4">
+                  <button className="w-14 h-14 bg-white/5 border border-white/10 rounded-full flex items-center justify-center active:bg-white/20 active:scale-95 shadow-lg" onPointerDown={() => onControl('Inventory', true)}><span className="text-[10px] font-black tracking-widest uppercase">INV</span></button>
                   <button className={`w-14 h-14 border rounded-full flex items-center justify-center transition-all ${isFlashlightOn ? 'bg-blue-500/30 border-blue-400 text-blue-100 shadow-lg' : 'bg-white/5 border-white/10 text-white/40'}`} onPointerDown={() => onControl('Flashlight', true)}><span className="text-[10px] font-black tracking-widest uppercase">LIGHT</span></button>
                   <button className="w-20 h-20 bg-red-950/20 border-2 border-red-600/30 rounded-full flex items-center justify-center active:bg-red-600/40 active:scale-95 shadow-xl" onPointerDown={() => onControl('Shoot', true)} onPointerUp={() => onControl('Shoot', false)}><div className="w-12 h-12 rounded-full border-2 border-red-600/40 flex items-center justify-center"><div className="w-5 h-5 bg-red-600 rounded-full animate-pulse shadow-lg"></div></div></button>
               </div>

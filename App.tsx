@@ -350,6 +350,10 @@ const App: React.FC = () => {
         toggleFlashlight();
         return;
     }
+    if (control === 'Inventory' && active) {
+        setIsInventoryOpen(prev => !prev);
+        return;
+    }
     if (control === 'Shoot') {
         isMouseDown.current = active;
         return;
@@ -401,11 +405,12 @@ const App: React.FC = () => {
         let nextScreenShake = prev.screenShake * 0.9 * (1 - (0.05 * dt));
         if (nextScreenShake < 0.1) nextScreenShake = 0;
 
-        if (!gameStarted || prev.player.hp <= 0 || isMenuOpen || isInventoryOpen) {
-            const sW = typeof window !== 'undefined' ? window.innerWidth : 1000;
-            const sH = typeof window !== 'undefined' ? window.innerHeight : 800;
-            const windX = -2.5;
+        const sW = typeof window !== 'undefined' ? window.innerWidth : 1000;
+        const sH = typeof window !== 'undefined' ? window.innerHeight : 800;
+        const groundLevelY = sH * 0.75;
+        const windX = -2.5;
 
+        if (!gameStarted || prev.player.hp <= 0 || isMenuOpen || isInventoryOpen) {
             let nextLamps = prev.lamps.map(lamp => {
               if (!lamp.isBroken) return lamp;
               let newIntensity = lamp.intensity;
@@ -453,7 +458,6 @@ const App: React.FC = () => {
         const gravity = 0.6;
         const jumpForce = -12;
         const now = Date.now();
-        const windX = -2.5;
 
         if (nextLightningIntensity > 0) {
           nextLightningIntensity -= 0.05 * dt;
@@ -474,8 +478,6 @@ const App: React.FC = () => {
           return { ...lamp, intensity: Math.max(0, Math.min(0.9, newIntensity)) };
         });
 
-        const sW = typeof window !== 'undefined' ? window.innerWidth : 1000;
-        const sH = typeof window !== 'undefined' ? window.innerHeight : 800;
         nextRain = nextRain.map(r => {
           let nx = r.x + windX * dt;
           let ny = r.y + r.speed * dt;
@@ -608,7 +610,7 @@ const App: React.FC = () => {
               vel: { x: throwDir * 8, y: -10 },
               rotation: 0,
               timer: 0,
-              isArmed: false
+              isArmed: true 
             });
             shootCooldown.current = 25;
           }
@@ -617,6 +619,10 @@ const App: React.FC = () => {
         // GRENADE PHYSICS
         nextGrenades = nextGrenades.map(g => {
           const updated = { ...g, vel: { ...g.vel } };
+          
+          updated.timer += 16.66 * dt;
+
+          // Physics
           updated.vel.y += gravity * dt;
           updated.x += updated.vel.x * dt;
           updated.y += updated.vel.y * dt;
@@ -625,9 +631,10 @@ const App: React.FC = () => {
           const gx = updated.x;
           const gy = updated.y;
 
+          // Collision detection
           let gGround = 0;
           let gOverPit = prev.pits.some(pit => (gx > pit.x && gx < pit.x + pit.width));
-          if (gOverPit || gy > 10) gGround = 1000;
+          if (gOverPit) gGround = 1000;
 
           for (const prop of prev.props) {
             if (gx + 10 > prop.x && gx < prop.x + prop.width) {
@@ -641,29 +648,27 @@ const App: React.FC = () => {
 
           if (updated.y > gGround) {
             updated.y = gGround;
-            updated.vel.y = -updated.vel.y * 0.4;
-            updated.vel.x *= 0.6;
-            updated.isArmed = true;
+            updated.vel.y = -updated.vel.y * 0.4; 
+            updated.vel.x *= 0.6; 
           }
 
-          if (updated.isArmed) {
-            updated.timer += 16.66 * dt;
-            if (updated.timer >= 2000) {
-              nextExplosions.push({ id: `exp-${now}-${Math.random()}`, x: updated.x, y: updated.y, life: 1.0 });
-              nextScreenShake = 30;
-              // AOE Damage
-              nextEnemies = nextEnemies.map(e => {
-                const dx = e.x - updated.x;
-                const dy = e.y - updated.y;
-                const dist = Math.sqrt(dx*dx + dy*dy);
-                if (dist < 150) return { ...e, hp: 0 };
-                return e;
-              });
-              return null as any;
-            }
+          // Fuse time reached (1.2s)
+          if (updated.timer >= 1200) {
+            nextExplosions.push({ id: `exp-${now}-${Math.random()}`, x: updated.x, y: updated.y, life: 1.0 });
+            nextScreenShake = 30;
+            // AOE Damage
+            nextEnemies = nextEnemies.map(e => {
+              const dx = e.x - updated.x;
+              const dy = e.y - updated.y;
+              const dist = Math.sqrt(dx*dx + dy*dy);
+              if (dist < 150) return { ...e, hp: 0 };
+              return e;
+            });
+            return null as any;
           }
+          
           return updated;
-        }).filter(g => g !== null && g.y < 450);
+        }).filter(g => g !== null && g.y < 1200); 
 
         nextExplosions = nextExplosions.map(exp => ({
           ...exp, life: exp.life - 0.02 * dt
@@ -699,7 +704,6 @@ const App: React.FC = () => {
           return updated;
         }).filter(bp => bp.life > 0);
 
-        const groundLevelY = sH * 0.75;
         nextCoins = nextCoins.map(coin => {
           const updatedCoin = { ...coin, vel: { ...coin.vel } };
           updatedCoin.vel.y += gravity * 0.8 * dt;
