@@ -99,12 +99,11 @@ const generateInitialGameState = (): GameState => {
   const upgradeStations: UpgradeStation[] = [];
   for (let i = 1; i < 20; i++) {
     let stationX = i * 3000;
-    // Check if station overlaps a pit and move if necessary
     let safetyAttempts = 0;
     while (safetyAttempts < 5) {
       const overlapsPit = pits.some(pit => (stationX - 50 < pit.x + pit.width && stationX + 90 > pit.x));
       if (!overlapsPit) break;
-      stationX += 200; // Shift right to find solid ground
+      stationX += 200;
       safetyAttempts++;
     }
     upgradeStations.push({ id: `station-${i}`, x: stationX });
@@ -203,6 +202,24 @@ const App: React.FC = () => {
     });
   };
 
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => {
+        console.warn(`Fullscreen request failed: ${err.message}`);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  }, []);
+
+  const handleStartGame = useCallback(() => {
+    // Attempt fullscreen on start
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+    }
+    setGameStarted(true);
+  }, []);
+
   const handleRestart = useCallback((e?: React.MouseEvent | React.TouchEvent) => {
     if (e) {
       e.preventDefault();
@@ -256,16 +273,6 @@ const App: React.FC = () => {
       }
       return { ...prev, score: prev.score - cost, player: nextPlayer };
     });
-  }, []);
-
-  const toggleFullscreen = useCallback(() => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(err => {
-        console.error(`Error attempting to enable full-screen mode: ${err.message}`);
-      });
-    } else {
-      document.exitFullscreen();
-    }
   }, []);
 
   useEffect(() => {
@@ -850,7 +857,7 @@ const App: React.FC = () => {
       
       {!gameStarted ? (
         <StartScreen 
-          onStart={() => setGameStarted(true)} 
+          onStart={handleStartGame} 
           controlMode={controlMode} 
           onUpdateControlMode={handleUpdateControlMode}
           isMuted={isMuted}
