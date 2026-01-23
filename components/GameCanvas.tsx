@@ -1,6 +1,6 @@
 
 import React, { useRef, useEffect } from 'react';
-import { GameState, StreetProp } from '../types';
+import { GameState, StreetProp, Billboard } from '../types';
 
 interface Props {
   gameState: GameState;
@@ -65,6 +65,44 @@ const GameCanvas: React.FC<Props> = ({ gameState }) => {
       }
     };
 
+    const drawBillboard = (bb: Billboard, worldOffset: number) => {
+      const bBoardWidth = 280;
+      const bBoardHeight = 150;
+      const screenX = bb.x - worldOffset - (bBoardWidth / 2);
+      const bBoardTopY = groundY - 190;
+
+      if (screenX < -bBoardWidth || screenX > canvas.width + 100) return;
+
+      // Board Face
+      ctx.fillStyle = '#0a0a0a';
+      ctx.fillRect(screenX, bBoardTopY, bBoardWidth, bBoardHeight);
+      
+      // Border
+      ctx.strokeStyle = '#1a1a1a';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(screenX, bBoardTopY, bBoardWidth, bBoardHeight);
+      
+      // Text logic (Split message into two lines if it's long)
+      const words = bb.message.split(' ');
+      let line1 = '';
+      let line2 = '';
+      const mid = Math.ceil(words.length / 2);
+      line1 = words.slice(0, mid).join(' ');
+      line2 = words.slice(mid).join(' ');
+
+      ctx.save();
+      ctx.font = 'bold 24px "Creepster", cursive';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = '#cccccc';
+      ctx.shadowBlur = 4;
+      ctx.shadowColor = 'black';
+      ctx.fillText(line1, screenX + bBoardWidth / 2, bBoardTopY + 65);
+      if (line2) {
+        ctx.fillText(line2, screenX + bBoardWidth / 2, bBoardTopY + 110);
+      }
+      ctx.restore();
+    };
+
     const drawMuzzleSpike = (x: number, y: number, angle: number, length: number, width: number, color: string) => {
       ctx.save();
       ctx.translate(x, y);
@@ -86,7 +124,7 @@ const GameCanvas: React.FC<Props> = ({ gameState }) => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       animationTime.current += 0.15;
       
-      const { player, lamps, props, pits, enemies, coins, collectingCoins, casings, bloodParticles, floatingTexts, rain, worldOffset, isMoving, muzzleFlash, lightningIntensity } = gameState;
+      const { player, lamps, billboards, props, pits, enemies, coins, collectingCoins, casings, bloodParticles, floatingTexts, rain, worldOffset, isMoving, muzzleFlash, lightningIntensity } = gameState;
 
       // Background Buildings - Silhouette pass
       const parallaxFactor = 0.2;
@@ -163,37 +201,10 @@ const GameCanvas: React.FC<Props> = ({ gameState }) => {
         }
       });
 
-      // --- BILLBOARD (Drawn after lamps to stay in front of the pole) ---
-      const bBoardWidth = 260;
-      const bBoardHeight = 140;
-      const targetLampX = 900; 
-      const billboardScreenX = targetLampX - worldOffset - (bBoardWidth / 2);
-      const bBoardTopY = groundY - 180; 
-
-      if (billboardScreenX > -bBoardWidth && billboardScreenX < canvas.width + 100) {
-          // Support Structure (Optional: can be behind or in front, usually looks better slightly offset or behind)
-          ctx.fillStyle = '#050505';
-          ctx.fillRect(billboardScreenX + 50, groundY - 120, 10, 120);
-          ctx.fillRect(billboardScreenX + bBoardWidth - 60, groundY - 120, 10, 120);
-          
-          // Board Face (Solid Opaque, covers the pole)
-          ctx.fillStyle = '#0a0a0a';
-          ctx.fillRect(billboardScreenX, bBoardTopY, bBoardWidth, bBoardHeight);
-          
-          // Border
-          ctx.strokeStyle = '#1a1a1a';
-          ctx.lineWidth = 4;
-          ctx.strokeRect(billboardScreenX, bBoardTopY, bBoardWidth, bBoardHeight);
-          
-          // Text (Lit by the lamp bulb directly above it)
-          ctx.save();
-          ctx.font = 'bold 28px "Creepster", cursive';
-          ctx.textAlign = 'center';
-          ctx.fillStyle = '#cccccc';
-          ctx.fillText("THE STREETS", billboardScreenX + bBoardWidth / 2, bBoardTopY + 60);
-          ctx.fillText("NEVER FORGET", billboardScreenX + bBoardWidth / 2, bBoardTopY + 105);
-          ctx.restore();
-      }
+      // --- BILLBOARDS (Rendered dynamically from state) ---
+      billboards.forEach(bb => {
+        drawBillboard(bb, worldOffset);
+      });
 
       enemies.forEach(enemy => {
         const screenX = enemy.x - worldOffset;
@@ -317,14 +328,14 @@ const GameCanvas: React.FC<Props> = ({ gameState }) => {
             const winX = x + padding + c * gapX;
             const winY = bY + 40 + r * gapY;
             
-            // PREVENT WINDOWS FROM SHOWING BEHIND BILLBOARD (Updated for new location)
-            const isInsideBillboard = 
-                winX > billboardScreenX - 5 && 
-                winX < billboardScreenX + bBoardWidth + 5 && 
-                winY > bBoardTopY - 5 && 
-                winY < bBoardTopY + bBoardHeight + 125; 
+            // PREVENT WINDOWS FROM SHOWING BEHIND ANY BILLBOARDS
+            const isInsideAnyBillboard = billboards.some(bb => {
+                const bbX = bb.x - worldOffset - 140;
+                const bbY = groundY - 190;
+                return winX > bbX - 5 && winX < bbX + 285 && winY > bbY - 5 && winY < bbY + 155;
+            });
 
-            if (!isInsideBillboard && (i + r * 3 + c) % 5 !== 0) {
+            if (!isInsideAnyBillboard && (i + r * 3 + c) % 5 !== 0) {
               ctx.fillRect(winX, winY, winW, winH);
             }
           }

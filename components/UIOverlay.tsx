@@ -4,8 +4,6 @@ interface Props {
   playerHp: number;
   flashlightBattery: number;
   score: number;
-  message: string;
-  loading: boolean;
   distance: number;
   isFlashlightOn: boolean;
   isFullscreen: boolean;
@@ -22,8 +20,6 @@ const UIOverlay: React.FC<Props> = ({
   playerHp, 
   flashlightBattery, 
   score, 
-  message, 
-  loading, 
   distance, 
   isFlashlightOn, 
   isFullscreen, 
@@ -44,6 +40,9 @@ const UIOverlay: React.FC<Props> = ({
       return () => clearTimeout(timer);
     }
   }, [score]);
+
+  // If the player is dead, don't show the game UI elements (stats bar, etc.)
+  if (playerHp <= 0) return null;
 
   return (
     <div className="absolute inset-0 pointer-events-none flex flex-col font-creepster text-white select-none overflow-hidden">
@@ -100,17 +99,6 @@ const UIOverlay: React.FC<Props> = ({
           </button>
         </div>
       </div>
-
-      {/* Atmospheric Message - Positioned below the stats bar */}
-      {!isMenuOpen && (
-        <div className="w-full flex justify-center mt-12 px-6">
-          <div className={`max-w-3xl text-center transition-all duration-1000 ${loading ? 'opacity-0' : 'opacity-100'}`}>
-            <p className="text-2xl sm:text-4xl italic text-white/90 leading-tight drop-shadow-[0_4px_12px_rgba(0,0,0,1)] tracking-wider">
-              {message ? `"${message}"` : ""}
-            </p>
-          </div>
-        </div>
-      )}
 
       {/* PAUSE MENU OVERLAY */}
       {isMenuOpen && (

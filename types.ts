@@ -23,6 +23,12 @@ export interface StreetLamp {
   isBroken: boolean;
 }
 
+export interface Billboard {
+  id: string;
+  x: number;
+  message: string;
+}
+
 export type PropType = 'box' | 'barrel';
 
 export interface StreetProp {
@@ -106,6 +112,7 @@ export interface RainParticle {
 export interface GameState {
   player: Player;
   lamps: StreetLamp[];
+  billboards: Billboard[];
   props: StreetProp[];
   pits: Pit[];
   enemies: Enemy[];

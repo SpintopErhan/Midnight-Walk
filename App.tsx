@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import GameCanvas from './components/GameCanvas.tsx';
 import UIOverlay from './components/UIOverlay.tsx';
 import StartScreen from './components/StartScreen.tsx';
-import { GameState, Player, StreetLamp, StreetProp, PropType, Enemy, Pit, GoldCoin, Casing, CollectingCoin, BloodParticle, RainParticle } from './types.ts';
+import { GameState, Player, StreetLamp, StreetProp, PropType, Enemy, Pit, GoldCoin, Casing, CollectingCoin, BloodParticle, RainParticle, Billboard } from './types.ts';
 
 const ATMOSPHERIC_MESSAGES = [
   "The shadows are whispering secrets tonight.",
@@ -51,6 +51,18 @@ const generateInitialGameState = (): GameState => {
     intensity: 0.9,
     isBroken: i > 0 && Math.random() < 0.3
   }));
+
+  const billboards: Billboard[] = [];
+  lamps.forEach((lamp, i) => {
+    // Rastgele %30 ihtimalle her lamba direğine bir tabela asalım
+    if (i > 0 && Math.random() < 0.3) {
+      billboards.push({
+        id: `billboard-${i}`,
+        x: lamp.x,
+        message: ATMOSPHERIC_MESSAGES[Math.floor(Math.random() * ATMOSPHERIC_MESSAGES.length)]
+      });
+    }
+  });
 
   const pits: Pit[] = [];
   const props: StreetProp[] = [];
@@ -108,6 +120,7 @@ const generateInitialGameState = (): GameState => {
   return {
     player: getFreshPlayer(),
     lamps,
+    billboards,
     props,
     pits,
     enemies,
@@ -127,7 +140,6 @@ const generateInitialGameState = (): GameState => {
 
 const App: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>(generateInitialGameState);
-  const [currentMessage, setCurrentMessage] = useState<string>(ATMOSPHERIC_MESSAGES[0]);
   const [deathReason, setDeathReason] = useState<'enemy' | 'falling' | null>(null);
   const [gameStarted, setGameStarted] = useState<boolean>(false);
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
@@ -136,7 +148,6 @@ const App: React.FC = () => {
   
   const keysPressed = useRef<{ [key: string]: boolean }>({});
   const jumpBuffered = useRef<boolean>(false);
-  const lastLampIndex = useRef<number>(-1);
   const shootCooldown = useRef<number>(0);
   const isMouseDown = useRef<boolean>(false);
   const lastTime = useRef<number>(performance.now());
@@ -165,12 +176,10 @@ const App: React.FC = () => {
     }
     keysPressed.current = {};
     jumpBuffered.current = false;
-    lastLampIndex.current = -1;
     shootCooldown.current = 0;
     isMouseDown.current = false;
     lastTime.current = performance.now();
     setGameState(generateInitialGameState());
-    setCurrentMessage(ATMOSPHERIC_MESSAGES[Math.floor(Math.random() * ATMOSPHERIC_MESSAGES.length)]);
     setDeathReason(null);
     setIsMenuOpen(false);
   }, []);
@@ -225,11 +234,6 @@ const App: React.FC = () => {
     keysPressed.current[control] = active;
   }, [toggleFlashlight]);
 
-  const updateAtmosphere = useCallback(() => {
-    const randomIndex = Math.floor(Math.random() * ATMOSPHERIC_MESSAGES.length);
-    setCurrentMessage(ATMOSPHERIC_MESSAGES[randomIndex]);
-  }, []);
-
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       keysPressed.current[e.code] = true;
@@ -263,7 +267,6 @@ const App: React.FC = () => {
       lastTime.current = time;
 
       setGameState(prev => {
-        // If the game hasn't started, player is dead, or menu is open, only update atmosphere (rain, lights)
         if (!gameStarted || prev.player.hp <= 0 || isMenuOpen) {
             const sW = typeof window !== 'undefined' ? window.innerWidth : 1000;
             const sH = typeof window !== 'undefined' ? window.innerHeight : 800;
@@ -742,12 +745,6 @@ const App: React.FC = () => {
             nextWorldOffset = Math.max(0, nextPlayer.pos.x - 100);
         }
 
-        const currentLampIndex = Math.floor(nextPlayer.pos.x / 600);
-        if (currentLampIndex > lastLampIndex.current) {
-          lastLampIndex.current = currentLampIndex;
-          updateAtmosphere();
-        }
-
         nextFloatingTexts = nextFloatingTexts.map(ft => ({
           ...ft,
           x: ft.x + ft.vx * dt,
@@ -778,7 +775,7 @@ const App: React.FC = () => {
 
     requestRef.current = requestAnimationFrame(update);
     return () => cancelAnimationFrame(requestRef.current);
-  }, [updateAtmosphere, toggleFlashlight, gameStarted, isMenuOpen]);
+  }, [gameStarted, isMenuOpen]);
 
   return (
     <div className="relative w-screen h-screen-dynamic bg-black overflow-hidden cursor-crosshair">
@@ -796,9 +793,7 @@ const App: React.FC = () => {
             playerHp={gameState.player.hp}
             flashlightBattery={gameState.player.flashlightBattery}
             score={gameState.score}
-            message={currentMessage} 
-            loading={false} 
-            distance={Math.max(0, Math.floor((gameState.player.pos.x - 100) / 10))} 
+            distance={Math.max(0, Math.floor((gameState.player.pos.x - 300) / 10))} 
             isFlashlightOn={gameState.player.isFlashlightOn}
             isFullscreen={isFullscreen}
             controlMode={controlMode}
@@ -811,7 +806,7 @@ const App: React.FC = () => {
           />
           
           {gameState.player.hp <= 0 && (
-            <div className="absolute inset-0 bg-black/95 flex flex-col items-center justify-center text-white z-50 p-6 text-center animate-in fade-in duration-1000">
+            <div className="absolute inset-0 bg-black/95 flex flex-col items-center justify-center text-white z-[100] p-6 text-center animate-in fade-in duration-1000">
               {deathReason === 'falling' ? (
                 <>
                   <h2 className="text-3xl sm:text-6xl md:text-8xl font-creepster mb-4 text-blue-600 drop-shadow-[0_0_20px_rgba(37,99,235,0.7)] break-words max-w-full uppercase">THE ABYSS CONSUMED YOU</h2>
@@ -827,7 +822,7 @@ const App: React.FC = () => {
                 <button 
                   onClick={() => handleRestart()}
                   onTouchEnd={() => handleRestart()}
-                  className="px-10 py-3.5 sm:px-14 sm:py-4 bg-red-950/30 border-2 border-red-600/40 rounded-full text-sm sm:text-xl uppercase tracking-widest font-black hover:bg-red-800/40 hover:border-red-500 transition-all active:scale-90 pointer-events-auto shadow-[0_0_30px_rgba(255,0,0,0.15)]"
+                  className="px-10 py-3.5 sm:px-14 sm:py-4 bg-red-950/30 border-2 border-red-600/40 rounded-full text-sm sm:text-xl uppercase tracking-widest font-black hover:bg-red-800/40 hover:border-red-500 transition-all active:scale-90 pointer-events-auto shadow-[0_0_30_rgba(255,0,0,0.15)]"
                 >
                   Try Again
                 </button>
