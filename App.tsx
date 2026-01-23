@@ -30,7 +30,8 @@ const ATMOSPHERIC_MESSAGES = [
 ];
 
 const RAIN_COUNT = 150;
-const STORAGE_KEY = 'midnight-walk-control-mode';
+const STORAGE_KEY_CONTROL = 'midnight-walk-control-mode';
+const STORAGE_KEY_MUTED = 'midnight-walk-is-muted';
 
 const getFreshPlayer = (): Player => ({
   pos: { x: 300, y: 0 },
@@ -54,7 +55,6 @@ const generateInitialGameState = (): GameState => {
 
   const billboards: Billboard[] = [];
   lamps.forEach((lamp, i) => {
-    // Rastgele %30 ihtimalle her lamba direğine bir tabela asalım
     if (i > 0 && Math.random() < 0.3) {
       billboards.push({
         id: `billboard-${i}`,
@@ -145,6 +145,7 @@ const App: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [controlMode, setControlMode] = useState<'keyboard' | 'touch'>('keyboard');
+  const [isMuted, setIsMuted] = useState<boolean>(false);
   
   const keysPressed = useRef<{ [key: string]: boolean }>({});
   const jumpBuffered = useRef<boolean>(false);
@@ -153,20 +154,32 @@ const App: React.FC = () => {
   const lastTime = useRef<number>(performance.now());
   const requestRef = useRef<number>(0);
 
-  // Load control mode from local storage
   useEffect(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved === 'touch' || saved === 'keyboard') {
-      setControlMode(saved as 'touch' | 'keyboard');
+    const savedControl = localStorage.getItem(STORAGE_KEY_CONTROL);
+    if (savedControl === 'touch' || savedControl === 'keyboard') {
+      setControlMode(savedControl as 'touch' | 'keyboard');
     } else {
       const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
       setControlMode(isTouch ? 'touch' : 'keyboard');
+    }
+
+    const savedMuted = localStorage.getItem(STORAGE_KEY_MUTED);
+    if (savedMuted !== null) {
+      setIsMuted(savedMuted === 'true');
     }
   }, []);
 
   const handleUpdateControlMode = (mode: 'keyboard' | 'touch') => {
     setControlMode(mode);
-    localStorage.setItem(STORAGE_KEY, mode);
+    localStorage.setItem(STORAGE_KEY_CONTROL, mode);
+  };
+
+  const handleToggleMute = () => {
+    setIsMuted(prev => {
+      const newVal = !prev;
+      localStorage.setItem(STORAGE_KEY_MUTED, String(newVal));
+      return newVal;
+    });
   };
 
   const handleRestart = useCallback((e?: React.MouseEvent | React.TouchEvent) => {
@@ -786,6 +799,8 @@ const App: React.FC = () => {
           onStart={() => setGameStarted(true)} 
           controlMode={controlMode} 
           onUpdateControlMode={handleUpdateControlMode}
+          isMuted={isMuted}
+          onToggleMute={handleToggleMute}
         />
       ) : (
         <>
