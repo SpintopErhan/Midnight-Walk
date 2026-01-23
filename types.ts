@@ -4,6 +4,8 @@ export interface Vector2 {
   y: number;
 }
 
+export type WeaponType = 'pistol' | 'grenade';
+
 export interface Player {
   pos: Vector2;
   vel: Vector2;
@@ -18,6 +20,8 @@ export interface Player {
   flashlightChargeRate: number;
   damagePower: number;
   direction: 'left' | 'right';
+  currentWeapon: WeaponType;
+  grenadeAmmo: number;
 }
 
 export interface StreetLamp {
@@ -110,6 +114,23 @@ export interface BloodParticle {
   life: number; // 1.0 to 0
 }
 
+export interface Grenade {
+  id: string;
+  x: number;
+  y: number;
+  vel: Vector2;
+  rotation: number;
+  timer: number; // 0 to 2000ms
+  isArmed: boolean;
+}
+
+export interface Explosion {
+  id: string;
+  x: number;
+  y: number;
+  life: number; // 1.0 to 0
+}
+
 export interface RainParticle {
   id: string;
   x: number;
@@ -130,6 +151,8 @@ export interface GameState {
   collectingCoins: CollectingCoin[];
   casings: Casing[];
   bloodParticles: BloodParticle[];
+  grenades: Grenade[];
+  explosions: Explosion[];
   floatingTexts: FloatingText[];
   rain: RainParticle[];
   score: number;

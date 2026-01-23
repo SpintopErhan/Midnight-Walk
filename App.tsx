@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import GameCanvas from './components/GameCanvas.tsx';
 import UIOverlay from './components/UIOverlay.tsx';
 import StartScreen from './components/StartScreen.tsx';
-import { GameState, Player, StreetLamp, StreetProp, PropType, Enemy, Pit, GoldCoin, Casing, CollectingCoin, BloodParticle, RainParticle, Billboard, UpgradeStation } from './types.ts';
+import { GameState, Player, StreetLamp, StreetProp, PropType, Enemy, Pit, GoldCoin, Casing, CollectingCoin, BloodParticle, RainParticle, Billboard, UpgradeStation, Grenade, Explosion, WeaponType } from './types.ts';
 
 const ATMOSPHERIC_MESSAGES = [
   "The shadows are whispering secrets tonight.",
@@ -47,7 +47,9 @@ const getFreshPlayer = (): Player => ({
   flashlightMaxBattery: 100,
   flashlightChargeRate: 1.0,
   damagePower: 10,
-  direction: 'right'
+  direction: 'right',
+  currentWeapon: 'pistol',
+  grenadeAmmo: 3
 });
 
 const generateInitialGameState = (): GameState => {
@@ -147,6 +149,8 @@ const generateInitialGameState = (): GameState => {
     collectingCoins: [],
     casings: [],
     bloodParticles: [],
+    grenades: [],
+    explosions: [],
     floatingTexts: [],
     rain,
     score: 0,
@@ -163,6 +167,7 @@ const App: React.FC = () => {
   const [deathReason, setDeathReason] = useState<'enemy' | 'falling' | null>(null);
   const [gameStarted, setGameStarted] = useState<boolean>(false);
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
+  const [isInventoryOpen, setIsInventoryOpen] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [controlMode, setControlMode] = useState<'keyboard' | 'touch'>('keyboard');
   const [isMuted, setIsMuted] = useState<boolean>(false);
@@ -197,16 +202,16 @@ const App: React.FC = () => {
     }
   }, [controlMode]);
 
-  // Handle Mobile Hardware Back Button (Refined)
   useEffect(() => {
     const handlePopState = (e: PopStateEvent) => {
       if (gameStarted) {
-        // If back button is pressed, activate menu and trap the next back press
-        if (!isMenuOpen) {
+        if (isInventoryOpen) {
+            setIsInventoryOpen(false);
+            window.history.pushState({ inGame: true }, "");
+        } else if (!isMenuOpen) {
           setIsMenuOpen(true);
           window.history.pushState({ inGame: true }, "");
         } else {
-          // If menu is already open and they press back again, they probably want to quit
           handleMainMenu();
         }
       }
@@ -219,7 +224,7 @@ const App: React.FC = () => {
     return () => {
       window.removeEventListener('popstate', handlePopState);
     };
-  }, [gameStarted, isMenuOpen]);
+  }, [gameStarted, isMenuOpen, isInventoryOpen]);
 
   const ensureFullscreen = useCallback(async () => {
     try {
@@ -260,7 +265,6 @@ const App: React.FC = () => {
 
   const handleStartGame = useCallback(async () => {
     await ensureFullscreen();
-    // Create a history entry to trap the back button
     window.history.pushState({ inGame: true }, "");
     setGameStarted(true);
   }, [ensureFullscreen]);
@@ -278,16 +282,25 @@ const App: React.FC = () => {
     setGameState(generateInitialGameState());
     setDeathReason(null);
     setIsMenuOpen(false);
+    setIsInventoryOpen(false);
   }, []);
 
   const handleMainMenu = useCallback(() => {
     setGameStarted(false);
     setIsMenuOpen(false);
+    setIsInventoryOpen(false);
     setGameState(generateInitialGameState());
-    // Try to clear the "trapped" state if possible
     if (window.history.state?.inGame) {
       window.history.back();
     }
+  }, []);
+
+  const handleEquipWeapon = useCallback((weapon: WeaponType) => {
+    setGameState(prev => ({
+      ...prev,
+      player: { ...prev.player, currentWeapon: weapon }
+    }));
+    setIsInventoryOpen(false);
   }, []);
 
   const toggleFlashlight = useCallback(() => {
@@ -351,15 +364,19 @@ const App: React.FC = () => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       keysPressed.current[e.code] = true;
-      if (e.code === 'KeyF' && gameState.player.hp > 0 && gameStarted && !isMenuOpen) {
+      if (e.code === 'KeyF' && gameState.player.hp > 0 && gameStarted && !isMenuOpen && !isInventoryOpen) {
         toggleFlashlight();
       }
+      if (e.code === 'KeyI' && gameStarted && gameState.player.hp > 0 && !isMenuOpen) {
+        setIsInventoryOpen(prev => !prev);
+      }
       if (e.code === 'Escape' && gameStarted && gameState.player.hp > 0) {
-        setIsMenuOpen(prev => !prev);
+        if (isInventoryOpen) setIsInventoryOpen(false);
+        else setIsMenuOpen(prev => !prev);
       }
     };
     const handleKeyUp = (e: KeyboardEvent) => { keysPressed.current[e.code] = false; };
-    const handleMouseDown = () => { if (gameStarted && !isMenuOpen) isMouseDown.current = true; };
+    const handleMouseDown = () => { if (gameStarted && !isMenuOpen && !isInventoryOpen) isMouseDown.current = true; };
     const handleMouseUp = () => { isMouseDown.current = false; };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -373,7 +390,7 @@ const App: React.FC = () => {
       window.removeEventListener('mousedown', handleMouseDown);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [gameState.player.hp, toggleFlashlight, gameStarted, isMenuOpen]);
+  }, [gameState.player.hp, toggleFlashlight, gameStarted, isMenuOpen, isInventoryOpen]);
 
   useEffect(() => {
     const update = (time: number) => {
@@ -384,7 +401,7 @@ const App: React.FC = () => {
         let nextScreenShake = prev.screenShake * 0.9 * (1 - (0.05 * dt));
         if (nextScreenShake < 0.1) nextScreenShake = 0;
 
-        if (!gameStarted || prev.player.hp <= 0 || isMenuOpen) {
+        if (!gameStarted || prev.player.hp <= 0 || isMenuOpen || isInventoryOpen) {
             const sW = typeof window !== 'undefined' ? window.innerWidth : 1000;
             const sH = typeof window !== 'undefined' ? window.innerHeight : 800;
             const windX = -2.5;
@@ -423,6 +440,8 @@ const App: React.FC = () => {
         let nextCasings = [...prev.casings];
         let nextBloodParticles = [...prev.bloodParticles];
         let nextFloatingTexts = [...prev.floatingTexts];
+        let nextGrenades = [...prev.grenades];
+        let nextExplosions = [...prev.explosions];
         let nextMuzzleFlash = prev.muzzleFlash;
         let nextWorldOffset = prev.worldOffset;
         let nextScore = prev.score;
@@ -481,103 +500,174 @@ const App: React.FC = () => {
 
         if (shootCooldown.current > 0) shootCooldown.current -= dt;
         if (isMouseDown.current && shootCooldown.current <= 0) {
-          nextMuzzleFlash = 1.0;
-          nextScreenShake = Math.min(nextScreenShake + 4, 15);
-          shootCooldown.current = 7;
-          firedThisFrame = true;
-          const bulletRange = 600;
-          const bulletDir = nextPlayer.direction === 'right' ? 1 : -1;
-          const playerX = nextPlayer.pos.x;
+          if (nextPlayer.currentWeapon === 'pistol') {
+            nextMuzzleFlash = 1.0;
+            nextScreenShake = Math.min(nextScreenShake + 4, 15);
+            shootCooldown.current = 7;
+            firedThisFrame = true;
+            const bulletRange = 600;
+            const bulletDir = nextPlayer.direction === 'right' ? 1 : -1;
+            const playerX = nextPlayer.pos.x;
 
-          nextCasings.push({
-            id: `casing-${now}-${Math.random()}`,
-            x: playerX + (nextPlayer.direction === 'right' ? nextPlayer.width : 0),
-            y: nextPlayer.pos.y - 36,
-            vel: { x: -bulletDir * (Math.random() * 3 + 2), y: -Math.random() * 4 - 2 },
-            rotation: Math.random() * Math.PI * 2,
-            rotVel: (Math.random() - 0.5) * 0.5,
-            life: 1.0
-          });
+            nextCasings.push({
+              id: `casing-${now}-${Math.random()}`,
+              x: playerX + (nextPlayer.direction === 'right' ? nextPlayer.width : 0),
+              y: nextPlayer.pos.y - 36,
+              vel: { x: -bulletDir * (Math.random() * 3 + 2), y: -Math.random() * 4 - 2 },
+              rotation: Math.random() * Math.PI * 2,
+              rotVel: (Math.random() - 0.5) * 0.5,
+              life: 1.0
+            });
 
-          let closestDist = bulletRange;
-          let hitType: 'none' | 'prop' | 'enemy' = 'none';
-          let hitId: string | null = null;
-          let hitPos: number = 0;
-          let hitY: number = 0;
+            let closestDist = bulletRange;
+            let hitType: 'none' | 'prop' | 'enemy' = 'none';
+            let hitId: string | null = null;
+            let hitPos: number = 0;
+            let hitY: number = 0;
 
-          if (nextPlayer.pos.y > -5) {
-            for (const prop of prev.props) {
-              const dist = bulletDir === 1 ? prop.x - playerX : playerX - (prop.x + prop.width);
+            if (nextPlayer.pos.y > -5) {
+              for (const prop of prev.props) {
+                const dist = bulletDir === 1 ? prop.x - playerX : playerX - (prop.x + prop.width);
+                if (dist > 0 && dist < closestDist) {
+                    closestDist = dist;
+                    hitType = 'prop';
+                    hitPos = bulletDir === 1 ? prop.x : prop.x + prop.width;
+                }
+              }
+            }
+
+            for (const enemy of nextEnemies) {
+              const dist = bulletDir === 1 ? enemy.x - playerX : playerX - (enemy.x + enemy.width);
               if (dist > 0 && dist < closestDist) {
                   closestDist = dist;
-                  hitType = 'prop';
-                  hitPos = bulletDir === 1 ? prop.x : prop.x + prop.width;
+                  hitType = 'enemy';
+                  hitId = enemy.id;
+                  hitPos = bulletDir === 1 ? enemy.x : enemy.x + enemy.width;
+                  hitY = enemy.y - (enemy.height * (0.3 + Math.random() * 0.4));
               }
             }
-          }
 
-          for (const enemy of nextEnemies) {
-            const dist = bulletDir === 1 ? enemy.x - playerX : playerX - (enemy.x + enemy.width);
-            if (dist > 0 && dist < closestDist) {
-                closestDist = dist;
-                hitType = 'enemy';
-                hitId = enemy.id;
-                hitPos = bulletDir === 1 ? enemy.x : enemy.x + enemy.width;
-                hitY = enemy.y - (enemy.height * (0.3 + Math.random() * 0.4));
-            }
-          }
+            if (hitType === 'enemy' && hitId) {
+              for (let i = 0; i < 8; i++) {
+                nextBloodParticles.push({
+                  id: `blood-${now}-${Math.random()}`,
+                  x: hitPos,
+                  y: hitY,
+                  vel: { 
+                    x: bulletDir * (2 + Math.random() * 4), 
+                    y: (Math.random() - 0.7) * 4 
+                  },
+                  size: 2 + Math.random() * 3,
+                  life: 1.0
+                });
+              }
 
-          if (hitType === 'enemy' && hitId) {
-            for (let i = 0; i < 8; i++) {
-              nextBloodParticles.push({
-                id: `blood-${now}-${Math.random()}`,
-                x: hitPos,
-                y: hitY,
-                vel: { 
-                  x: bulletDir * (2 + Math.random() * 4), 
-                  y: (Math.random() - 0.7) * 4 
-                },
-                size: 2 + Math.random() * 3,
-                life: 1.0
-              });
-            }
-
-            nextEnemies = nextEnemies.map(enemy => {
-              if (enemy.id === hitId) {
-                const newHp = enemy.hp - nextPlayer.damagePower;
-                if (newHp <= 0) {
-                  const coinCount = Math.floor(Math.random() * 3) + 2;
-                  for (let i = 0; i < coinCount; i++) {
-                    nextCoins.push({
-                      id: `coin-${enemy.id}-${i}-${now}`,
+              nextEnemies = nextEnemies.map(enemy => {
+                if (enemy.id === hitId) {
+                  const newHp = enemy.hp - nextPlayer.damagePower;
+                  if (newHp <= 0) {
+                    const coinCount = Math.floor(Math.random() * 3) + 2;
+                    for (let i = 0; i < coinCount; i++) {
+                      nextCoins.push({
+                        id: `coin-${enemy.id}-${i}-${now}`,
+                        x: enemy.x + enemy.width / 2,
+                        y: enemy.y - enemy.height / 2,
+                        vel: { x: (Math.random() - 0.5) * 6, y: -5 - Math.random() * 5 },
+                        value: Math.floor(Math.random() * 11) + 5
+                      });
+                    }
+                    nextFloatingTexts.push({
+                      id: `kill-${enemy.id}-${now}`,
                       x: enemy.x + enemy.width / 2,
-                      y: enemy.y - enemy.height / 2,
-                      vel: { x: (Math.random() - 0.5) * 6, y: -5 - Math.random() * 5 },
-                      value: Math.floor(Math.random() * 11) + 5
+                      y: -enemy.height - 40,
+                      vx: 0,
+                      vy: -1,
+                      text: "ELIMINATED",
+                      opacity: 1.0,
+                      color: '#ff1a1a'
                     });
                   }
-                  nextFloatingTexts.push({
-                    id: `kill-${enemy.id}-${now}`,
-                    x: enemy.x + enemy.width / 2,
-                    y: -enemy.height - 40,
-                    vx: 0,
-                    vy: -1,
-                    text: "ELIMINATED",
-                    opacity: 1.0,
-                    color: '#ff1a1a'
-                  });
+                  return { 
+                    ...enemy, 
+                    hp: newHp, 
+                    isAggroed: true,
+                    vel: { x: bulletDir * 6, y: -5 } 
+                  };
                 }
-                return { 
-                  ...enemy, 
-                  hp: newHp, 
-                  isAggroed: true,
-                  vel: { x: bulletDir * 6, y: -3.5 } 
-                };
-              }
-              return enemy;
-            }).filter(e => e.hp > 0);
+                return enemy;
+              }).filter(e => e.hp > 0);
+            }
+          } else if (nextPlayer.currentWeapon === 'grenade' && nextPlayer.grenadeAmmo > 0) {
+            // THROW GRENADE
+            nextPlayer.grenadeAmmo--;
+            const throwDir = nextPlayer.direction === 'right' ? 1 : -1;
+            nextGrenades.push({
+              id: `grenade-${now}-${Math.random()}`,
+              x: nextPlayer.pos.x + (nextPlayer.direction === 'right' ? nextPlayer.width : 0),
+              y: nextPlayer.pos.y - 40,
+              vel: { x: throwDir * 8, y: -10 },
+              rotation: 0,
+              timer: 0,
+              isArmed: false
+            });
+            shootCooldown.current = 25;
           }
         }
+
+        // GRENADE PHYSICS
+        nextGrenades = nextGrenades.map(g => {
+          const updated = { ...g, vel: { ...g.vel } };
+          updated.vel.y += gravity * dt;
+          updated.x += updated.vel.x * dt;
+          updated.y += updated.vel.y * dt;
+          updated.rotation += updated.vel.x * 0.05 * dt;
+
+          const gx = updated.x;
+          const gy = updated.y;
+
+          let gGround = 0;
+          let gOverPit = prev.pits.some(pit => (gx > pit.x && gx < pit.x + pit.width));
+          if (gOverPit || gy > 10) gGround = 1000;
+
+          for (const prop of prev.props) {
+            if (gx + 10 > prop.x && gx < prop.x + prop.width) {
+              const pTop = -prop.height;
+              if (updated.vel.y >= 0 && g.y <= pTop + 5 && updated.y >= pTop) {
+                gGround = pTop;
+                break;
+              }
+            }
+          }
+
+          if (updated.y > gGround) {
+            updated.y = gGround;
+            updated.vel.y = -updated.vel.y * 0.4;
+            updated.vel.x *= 0.6;
+            updated.isArmed = true;
+          }
+
+          if (updated.isArmed) {
+            updated.timer += 16.66 * dt;
+            if (updated.timer >= 2000) {
+              nextExplosions.push({ id: `exp-${now}-${Math.random()}`, x: updated.x, y: updated.y, life: 1.0 });
+              nextScreenShake = 30;
+              // AOE Damage
+              nextEnemies = nextEnemies.map(e => {
+                const dx = e.x - updated.x;
+                const dy = e.y - updated.y;
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                if (dist < 150) return { ...e, hp: 0 };
+                return e;
+              });
+              return null as any;
+            }
+          }
+          return updated;
+        }).filter(g => g !== null && g.y < 450);
+
+        nextExplosions = nextExplosions.map(exp => ({
+          ...exp, life: exp.life - 0.02 * dt
+        })).filter(exp => exp.life > 0);
 
         nextCasings = nextCasings.map(c => {
           const updated = { ...c, vel: { ...c.vel } };
@@ -683,7 +773,6 @@ const App: React.FC = () => {
           
           if (nextPlayer.isFlashlightOn) {
             const facingCorrectWay = nextPlayer.direction === 'right' ? distToPlayer > 0 : distToPlayer < 0;
-            // REVERTED: Menzil tekrar 350 birime çekildi.
             if (facingCorrectWay && absDist < 350) updatedEnemy.isAggroed = true;
           }
           if (!updatedEnemy.isAggroed && firedThisFrame && absDist < 500) updatedEnemy.isAggroed = true;
@@ -882,6 +971,8 @@ const App: React.FC = () => {
           casings: nextCasings,
           bloodParticles: nextBloodParticles,
           floatingTexts: nextFloatingTexts,
+          grenades: nextGrenades,
+          explosions: nextExplosions,
           rain: nextRain,
           score: nextScore,
           muzzleFlash: nextMuzzleFlash,
@@ -897,7 +988,7 @@ const App: React.FC = () => {
 
     requestRef.current = requestAnimationFrame(update);
     return () => cancelAnimationFrame(requestRef.current);
-  }, [gameStarted, isMenuOpen]);
+  }, [gameStarted, isMenuOpen, isInventoryOpen]);
 
   const nearestStation = gameState.upgradeStations.find(s => Math.abs(s.x - gameState.player.pos.x) < 100);
 
@@ -926,6 +1017,9 @@ const App: React.FC = () => {
             isFullscreen={isFullscreen}
             controlMode={controlMode}
             isMenuOpen={isMenuOpen}
+            isInventoryOpen={isInventoryOpen}
+            currentWeapon={gameState.player.currentWeapon}
+            grenadeAmmo={gameState.player.grenadeAmmo}
             onToggleMenu={() => setIsMenuOpen(p => !p)}
             onToggleFullscreen={toggleFullscreen}
             onControl={handleTouchControl}
@@ -934,6 +1028,7 @@ const App: React.FC = () => {
             atUpgradeStation={!!nearestStation}
             nearestStationScreenX={nearestStation ? (nearestStation.x - gameState.worldOffset + 20) : null}
             onUpgrade={handleUpgrade}
+            onEquipWeapon={handleEquipWeapon}
           />
           
           {gameState.player.hp <= 0 && (

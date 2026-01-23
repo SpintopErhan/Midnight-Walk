@@ -124,7 +124,7 @@ const GameCanvas: React.FC<Props> = ({ gameState }) => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       animationTime.current += 0.15;
       
-      const { player, lamps, billboards, props, pits, enemies, upgradeStations, coins, collectingCoins, casings, bloodParticles, floatingTexts, rain, worldOffset, isMoving, muzzleFlash, lightningIntensity, screenShake } = gameState;
+      const { player, lamps, billboards, props, pits, enemies, upgradeStations, coins, collectingCoins, casings, bloodParticles, grenades, explosions, floatingTexts, rain, worldOffset, isMoving, muzzleFlash, lightningIntensity, screenShake } = gameState;
 
       ctx.save();
       if (screenShake > 0) {
@@ -250,6 +250,53 @@ const GameCanvas: React.FC<Props> = ({ gameState }) => {
         ctx.save(); ctx.translate(sx, sy); ctx.rotate(c.rotation); ctx.fillStyle = `rgba(251, 191, 36, ${c.life})`; ctx.fillRect(-2, -1, 4, 2); ctx.restore();
       });
 
+      // GRENADES
+      grenades.forEach(g => {
+        const gx = g.x - worldOffset;
+        const gy = groundY + g.y - 12;
+        ctx.save();
+        ctx.translate(gx, gy);
+        ctx.rotate(g.rotation);
+        ctx.fillStyle = '#2d3436';
+        ctx.beginPath();
+        ctx.arc(0, 0, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#1a1a1a'; ctx.stroke();
+        if (g.isArmed) {
+          const blink = Math.floor(g.timer / 250) % 2 === 0;
+          if (blink) {
+            ctx.fillStyle = 'red';
+            ctx.beginPath(); ctx.arc(0, -5, 2, 0, Math.PI * 2); ctx.fill();
+          }
+        }
+        ctx.restore();
+      });
+
+      // EXPLOSIONS
+      explosions.forEach(exp => {
+        const ex = exp.x - worldOffset;
+        const ey = groundY + exp.y;
+        
+        // Ring
+        ctx.strokeStyle = `rgba(255, 255, 255, ${exp.life * 0.4})`;
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(ex, ey, 150 * (1 - exp.life), 0, Math.PI * 2);
+        ctx.stroke();
+
+        // Smoke (Grayscale)
+        for (let i = 0; i < 15; i++) {
+            const angle = (i / 15) * Math.PI * 2 + exp.life;
+            const dist = 120 * (1 - exp.life) * (0.5 + Math.random() * 0.5);
+            const px = ex + Math.cos(angle) * dist;
+            const py = ey + Math.sin(angle) * dist;
+            const size = 30 * exp.life * (0.5 + Math.random() * 0.5);
+            const gray = Math.floor(80 + Math.random() * 100);
+            ctx.fillStyle = `rgba(${gray}, ${gray}, ${gray}, ${exp.life * 0.5})`;
+            ctx.beginPath(); ctx.arc(px, py, size, 0, Math.PI * 2); ctx.fill();
+        }
+      });
+
       const pX = player.pos.x - worldOffset;
       const isJumping = player.pos.y < 0;
       let bobY = 0; let legAngle = 0;
@@ -267,7 +314,6 @@ const GameCanvas: React.FC<Props> = ({ gameState }) => {
       ctx.fillStyle = '#334155'; ctx.fillRect(fHandX, fHandY, fWidth, fHeight);
       const gWidth = 18; const gHeight = 8; const recoilOffset = muzzleFlash * 3;
       const gHandX = player.direction === 'right' ? pX + player.width - 8 - recoilOffset : pX - gWidth + 8 + recoilOffset; 
-      // Fix: Declared gHandY with 'const' so it is visible to the rest of the draw function.
       const gHandY = pY + 36;
       ctx.fillStyle = '#1e293b'; ctx.fillRect(gHandX, gHandY, gWidth, gHeight);
       const barrelX = player.direction === 'right' ? gHandX + gWidth : gHandX - 12; ctx.fillStyle = '#0f172a'; ctx.fillRect(barrelX, gHandY + 1, 12, 4);
@@ -319,7 +365,6 @@ const GameCanvas: React.FC<Props> = ({ gameState }) => {
       let flashlightIntensity = 1.0;
       if (player.isFlashlightOn && player.flashlightBattery < 20) {
         const batteryPct = player.flashlightBattery / 20; // 1.0 to 0.0
-        // Intensify flicker chance as battery drops
         if (Math.random() < (1 - batteryPct) * 0.4) {
           flashlightIntensity = 0.2 + Math.random() * 0.5;
         }
@@ -327,13 +372,11 @@ const GameCanvas: React.FC<Props> = ({ gameState }) => {
 
       if (player.isFlashlightOn) {
         const beamOriginX = player.direction === 'right' ? fHandX + fWidth : fHandX; const beamOriginY = fHandY + fHeight / 2;
-        // REVERTED: Parlama dairesi 50 birime çekildi.
         const spillGrad = lctx.createRadialGradient(beamOriginX, beamOriginY, 0, beamOriginX, beamOriginY, 50);
         spillGrad.addColorStop(0, `rgba(255, 255, 255, ${0.7 * flashlightIntensity})`); 
         spillGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
         lctx.fillStyle = spillGrad; lctx.beginPath(); lctx.arc(beamOriginX, beamOriginY, 50, 0, Math.PI * 2); lctx.fill();
         
-        // REVERTED: Menzil tekrar 350 birime çekildi.
         const beamLength = 350; 
         const beamEndHalfWidth = 150; 
         const beamStartHalfWidth = 5; 
@@ -359,6 +402,16 @@ const GameCanvas: React.FC<Props> = ({ gameState }) => {
         flashGrad.addColorStop(0, `rgba(255, 255, 255, ${muzzleFlash})`); flashGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
         lctx.fillStyle = flashGrad; lctx.beginPath(); lctx.arc(flashX, flashY, flashRadius, 0, Math.PI * 2); lctx.fill();
       }
+
+      // Lighting for Explosions
+      explosions.forEach(exp => {
+          const ex = exp.x - worldOffset; const ey = groundY + exp.y;
+          const eRad = 300 * exp.life;
+          const eGrad = lctx.createRadialGradient(ex, ey, 0, ex, ey, eRad);
+          eGrad.addColorStop(0, `rgba(255, 255, 255, ${exp.life})`);
+          eGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+          lctx.fillStyle = eGrad; lctx.beginPath(); lctx.arc(ex, ey, eRad, 0, Math.PI * 2); lctx.fill();
+      });
 
       if (lCanvas.width > 0 && lCanvas.height > 0) {
         ctx.drawImage(lCanvas, 0, 0);
@@ -426,7 +479,6 @@ const GameCanvas: React.FC<Props> = ({ gameState }) => {
         });
         if (player.isFlashlightOn) {
           const beamOriginX = player.direction === 'right' ? fHandX + fWidth : fHandX; const beamOriginY = fHandY + fHeight / 2;
-          // REVERTED: Yağmur damlalarının ışık fark etme mesafesi 350 birime çekildi.
           const dx = sx - beamOriginX; const dy = sy - beamOriginY; const dist = Math.sqrt(dx * dx + dy * dy);
           const angle = Math.atan2(dy, dx); const dirF = player.direction === 'right' ? 0 : Math.PI;
           const angleDiff = Math.abs(angle - dirF);
@@ -467,7 +519,6 @@ const GameCanvas: React.FC<Props> = ({ gameState }) => {
 
       if (player.isFlashlightOn) {
         const beamOriginX = player.direction === 'right' ? fHandX + fWidth : fHandX; const beamOriginY = fHandY + fHeight / 2; const dirF = player.direction === 'right' ? 1 : -1;
-        // REVERTED: Havadaki ışık huzmesinin (haze) menzili 300 birime çekildi. Opaklık korundu.
         const beamLength = 300;
         const beamEndHalfWidth = 120; 
         const beamStartHalfWidth = 5; 

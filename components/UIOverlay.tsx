@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
+import { WeaponType } from '../types';
 
 interface Props {
   playerHp: number;
@@ -12,6 +13,9 @@ interface Props {
   isFullscreen: boolean;
   controlMode: 'keyboard' | 'touch';
   isMenuOpen: boolean;
+  isInventoryOpen: boolean;
+  currentWeapon: WeaponType;
+  grenadeAmmo: number;
   atUpgradeStation: boolean;
   nearestStationScreenX?: number | null;
   onToggleMenu: () => void;
@@ -20,6 +24,7 @@ interface Props {
   onRestart: () => void;
   onMainMenu: () => void;
   onUpgrade: (type: string, cost: number) => void;
+  onEquipWeapon: (weapon: WeaponType) => void;
 }
 
 const UIOverlay: React.FC<Props> = ({ 
@@ -33,6 +38,9 @@ const UIOverlay: React.FC<Props> = ({
   isFullscreen, 
   controlMode,
   isMenuOpen,
+  isInventoryOpen,
+  currentWeapon,
+  grenadeAmmo,
   atUpgradeStation,
   nearestStationScreenX,
   onToggleMenu,
@@ -40,7 +48,8 @@ const UIOverlay: React.FC<Props> = ({
   onControl,
   onRestart,
   onMainMenu,
-  onUpgrade
+  onUpgrade,
+  onEquipWeapon
 }) => {
   const [isBallooning, setIsBallooning] = useState(false);
   const [showShop, setShowShop] = useState(false);
@@ -62,7 +71,6 @@ const UIOverlay: React.FC<Props> = ({
     { id: 'damage', name: 'Lead Bullets', cost: 200, desc: '+5 Bullet Damage', icon: '💥' },
   ];
 
-  // Calculate percentages safely - clamped and formatted for CSS
   const hpPercent = Math.max(0, Math.min(100, (playerHp / playerMaxHp) * 100));
   const batteryPercent = Math.max(0, Math.min(100, (flashlightBattery / flashlightMaxBattery) * 100));
 
@@ -77,19 +85,18 @@ const UIOverlay: React.FC<Props> = ({
           <p className="text-xl font-bold tabular-nums">{distance}M</p>
         </div>
 
-        <div className={`flex flex-col items-center transition-transform duration-200 ${isBallooning ? 'scale-125' : 'scale-100'}`}>
-          <span className="text-[10px] tracking-widest text-amber-500 opacity-60 uppercase">Loot</span>
-          <p className="text-xl font-bold tabular-nums text-amber-400">{score}</p>
+        <div className="flex flex-col items-center">
+           <span className="text-[10px] tracking-widest text-amber-500 opacity-60 uppercase">Weapon</span>
+           <p className="text-sm font-bold tracking-widest uppercase italic tabular-nums">
+             {currentWeapon === 'pistol' ? 'Pistol' : 'Grenade'} 
+             <span className="ml-1 opacity-50">({currentWeapon === 'pistol' ? '∞' : grenadeAmmo})</span>
+           </p>
         </div>
 
         <div className="flex flex-col items-center w-24">
           <span className="text-[10px] tracking-widest text-red-500 opacity-60 uppercase">Health</span>
           <div className="w-full h-1.5 bg-red-950 rounded-full mt-1 border border-red-500/20 overflow-hidden">
-            {/* REMOVED transition-[width] to fix mobile sync issues */}
-            <div 
-              className="h-full bg-red-600" 
-              style={{ width: `${hpPercent}%` }}
-            ></div>
+            <div className="h-full bg-red-600" style={{ width: `${hpPercent}%` }}></div>
           </div>
           <p className={`text-xs font-bold tabular-nums mt-0.5 ${playerHp < playerMaxHp * 0.3 ? 'text-red-600 animate-pulse' : 'text-red-400'}`}>{playerHp}</p>
         </div>
@@ -97,21 +104,15 @@ const UIOverlay: React.FC<Props> = ({
         <div className="flex flex-col items-center w-24">
           <span className="text-[10px] tracking-widest text-blue-200 opacity-60 uppercase">Battery</span>
           <div className="w-full h-1.5 bg-blue-950 rounded-full mt-1 border border-blue-500/20 overflow-hidden">
-            {/* REMOVED transition-[width] and simplified styling to ensure zero means zero on all browsers */}
-            <div 
-              className={`h-full bg-blue-400 ${isFlashlightOn ? 'animate-pulse' : ''}`} 
-              style={{ width: `${batteryPercent}%` }}
-            ></div>
+            <div className={`h-full bg-blue-400 ${isFlashlightOn ? 'animate-pulse' : ''}`} style={{ width: `${batteryPercent}%` }}></div>
           </div>
           <p className={`text-xs font-bold tabular-nums mt-0.5 ${flashlightBattery < flashlightMaxBattery * 0.2 ? 'text-blue-500 animate-pulse' : 'text-blue-200'}`}>{Math.floor(flashlightBattery)}</p>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Full Screen Toggle Button */}
           <button 
             onClick={onToggleFullscreen}
             className="pointer-events-auto px-3 py-1 bg-white/5 border border-white/20 rounded hover:bg-white/10 transition-colors active:scale-95 flex items-center justify-center min-w-[44px]"
-            title="Toggle Fullscreen"
           >
             <span className="text-[10px] tracking-widest text-white/40 uppercase font-black">{isFullscreen ? 'EXIT' : 'FULL'}</span>
           </button>
@@ -125,8 +126,46 @@ const UIOverlay: React.FC<Props> = ({
         </div>
       </div>
 
+      {/* INVENTORY UI */}
+      {isInventoryOpen && (
+        <div className="absolute inset-0 bg-black/90 backdrop-blur-2xl flex flex-col items-center justify-center z-[100] animate-in fade-in duration-300 pointer-events-auto">
+          <h2 className="text-6xl font-creepster text-red-600 mb-12 tracking-widest uppercase italic drop-shadow-[0_0_20px_rgba(255,0,0,0.5)]">Inventory</h2>
+          <div className="flex gap-8 max-w-2xl w-full px-10">
+            {/* Pistol Card */}
+            <div className={`flex-1 p-8 rounded-3xl border-2 transition-all ${currentWeapon === 'pistol' ? 'border-red-600 bg-red-950/20' : 'border-white/10 bg-white/5 opacity-50'}`}>
+              <div className="text-5xl mb-6">🔫</div>
+              <h3 className="text-2xl mb-2">Service Pistol</h3>
+              <p className="text-[10px] text-white/40 uppercase tracking-widest font-inter mb-10">Standard Issue • Infinite Ammo</p>
+              <button 
+                onClick={() => onEquipWeapon('pistol')}
+                disabled={currentWeapon === 'pistol'}
+                className={`w-full py-4 rounded-xl text-xs font-black tracking-[0.2em] uppercase transition-all ${currentWeapon === 'pistol' ? 'bg-white/10 text-white/20 cursor-default' : 'bg-red-600 hover:bg-red-500 text-white active:scale-95'}`}
+              >
+                {currentWeapon === 'pistol' ? 'EQUIPPED' : 'EQUIP'}
+              </button>
+            </div>
+
+            {/* Grenade Card */}
+            <div className={`flex-1 p-8 rounded-3xl border-2 transition-all ${currentWeapon === 'grenade' ? 'border-red-600 bg-red-950/20' : 'border-white/10 bg-white/5'}`}>
+              <div className="text-5xl mb-6">💣</div>
+              <h3 className="text-2xl mb-2">Frag Grenade</h3>
+              <p className="text-[10px] text-white/40 uppercase tracking-widest font-inter mb-4">HE Explosive • {grenadeAmmo} LEFT</p>
+              <p className="text-[9px] text-red-500/60 uppercase tracking-widest mb-10 italic">2s timer after impact</p>
+              <button 
+                onClick={() => onEquipWeapon('grenade')}
+                disabled={currentWeapon === 'grenade' || grenadeAmmo <= 0}
+                className={`w-full py-4 rounded-xl text-xs font-black tracking-[0.2em] uppercase transition-all ${currentWeapon === 'grenade' ? 'bg-white/10 text-white/20 cursor-default' : (grenadeAmmo > 0 ? 'bg-red-600 hover:bg-red-500 text-white active:scale-95' : 'bg-black/50 text-white/20 cursor-not-allowed')}`}
+              >
+                {grenadeAmmo <= 0 ? 'OUT OF AMMO' : (currentWeapon === 'grenade' ? 'EQUIPPED' : 'EQUIP')}
+              </button>
+            </div>
+          </div>
+          <div className="mt-16 text-white/30 uppercase text-[10px] tracking-[0.4em] animate-pulse">Press [I] to continue the walk</div>
+        </div>
+      )}
+
       {/* SHOP label directly over the station */}
-      {atUpgradeStation && !showShop && !isMenuOpen && nearestStationScreenX !== null && (
+      {atUpgradeStation && !showShop && !isMenuOpen && !isInventoryOpen && nearestStationScreenX !== null && (
         <div 
           className="absolute pointer-events-auto animate-pulse z-[50]"
           style={{ 
@@ -187,9 +226,16 @@ const UIOverlay: React.FC<Props> = ({
       )}
 
       <div className="flex-grow"></div>
+      
+      {/* Control Hint */}
+      {!isMenuOpen && !isInventoryOpen && !showShop && (
+        <div className="absolute bottom-8 left-8 bg-black/60 border border-white/10 px-4 py-2 rounded-full text-[10px] text-white/40 uppercase tracking-[0.2em] pointer-events-none">
+          Press [I] Inventory
+        </div>
+      )}
 
       {/* Touch Controls */}
-      {controlMode === 'touch' && !isMenuOpen && !showShop && (
+      {controlMode === 'touch' && !isMenuOpen && !showShop && !isInventoryOpen && (
         <div className="w-full p-6 sm:p-10 pointer-events-auto pb-safe">
           <div className="flex justify-between items-end w-full">
             <div className="flex gap-4">
