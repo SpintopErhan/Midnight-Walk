@@ -82,7 +82,7 @@ const GameCanvas: React.FC<Props> = ({ gameState }) => {
       ctx.lineWidth = 4;
       ctx.strokeRect(screenX, bBoardTopY, bBoardWidth, bBoardHeight);
       
-      // Text logic (Split message into two lines if it's long)
+      // Text logic
       const words = bb.message.split(' ');
       let line1 = '';
       let line2 = '';
@@ -126,7 +126,6 @@ const GameCanvas: React.FC<Props> = ({ gameState }) => {
       
       const { player, lamps, billboards, props, pits, enemies, upgradeStations, coins, collectingCoins, casings, bloodParticles, floatingTexts, rain, worldOffset, isMoving, muzzleFlash, lightningIntensity, screenShake } = gameState;
 
-      // START SCREEN SHAKE
       ctx.save();
       if (screenShake > 0) {
         const sx = (Math.random() - 0.5) * screenShake;
@@ -134,7 +133,7 @@ const GameCanvas: React.FC<Props> = ({ gameState }) => {
         ctx.translate(sx, sy);
       }
 
-      // Background Buildings - Silhouette pass
+      // Background Buildings
       const parallaxFactor = 0.2;
       for (let i = -5; i < 25; i++) {
         const bW = 180;
@@ -220,7 +219,6 @@ const GameCanvas: React.FC<Props> = ({ gameState }) => {
         }
       });
 
-      // --- BILLBOARDS (Rendered dynamically from state) ---
       billboards.forEach(bb => {
         drawBillboard(bb, worldOffset);
       });
@@ -294,6 +292,27 @@ const GameCanvas: React.FC<Props> = ({ gameState }) => {
         lctx.fillStyle = gradient; lctx.beginPath(); lctx.arc(screenX, lampY, lamp.range, 0, Math.PI * 2); lctx.fill();
       });
 
+      // Shop Conical Light in Lighting Layer
+      upgradeStations.forEach(station => {
+        const dist = Math.abs(station.x - player.pos.x);
+        if (dist < 100) {
+          const sx = station.x - worldOffset + 20; 
+          const sy = groundY - 100; // Above the machine
+          const lightRange = 180;
+          const pulse = 0.8 + Math.sin(animationTime.current * 2) * 0.2;
+          const gradient = lctx.createRadialGradient(sx, sy, 0, sx, sy, lightRange);
+          gradient.addColorStop(0, `rgba(255, 255, 255, ${pulse})`);
+          gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+          lctx.fillStyle = gradient;
+          lctx.beginPath();
+          lctx.moveTo(sx, sy);
+          lctx.lineTo(sx - 100, groundY);
+          lctx.lineTo(sx + 100, groundY);
+          lctx.closePath();
+          lctx.fill();
+        }
+      });
+
       if (player.isFlashlightOn) {
         const beamOriginX = player.direction === 'right' ? fHandX + fWidth : fHandX; const beamOriginY = fHandY + fHeight / 2;
         const spillGrad = lctx.createRadialGradient(beamOriginX, beamOriginY, 0, beamOriginX, beamOriginY, 50);
@@ -330,7 +349,31 @@ const GameCanvas: React.FC<Props> = ({ gameState }) => {
         ctx.drawImage(lCanvas, 0, 0);
       }
 
-      // --- INDEPENDENT WINDOW LIGHTING ---
+      // Atmospheric Shop Light (Conical Haze)
+      ctx.save();
+      ctx.globalCompositeOperation = 'screen';
+      upgradeStations.forEach(station => {
+        const dist = Math.abs(station.x - player.pos.x);
+        if (dist < 100) {
+          const sx = station.x - worldOffset + 20; 
+          const sy = groundY - 100;
+          const pulse = 0.15 + Math.sin(animationTime.current * 2) * 0.05;
+          const beamGrad = ctx.createLinearGradient(sx, sy, sx, groundY);
+          beamGrad.addColorStop(0, `rgba(251, 191, 36, ${pulse})`);
+          beamGrad.addColorStop(1, 'rgba(251, 191, 36, 0)');
+          ctx.fillStyle = beamGrad;
+          ctx.beginPath();
+          ctx.moveTo(sx - 10, sy);
+          ctx.lineTo(sx + 10, sy);
+          ctx.lineTo(sx + 90, groundY);
+          ctx.lineTo(sx - 90, groundY);
+          ctx.closePath();
+          ctx.fill();
+        }
+      });
+      ctx.restore();
+
+      // Independent window lighting
       ctx.save();
       ctx.globalCompositeOperation = 'screen';
       ctx.fillStyle = 'rgba(255, 255, 240, 0.08)';
@@ -340,22 +383,17 @@ const GameCanvas: React.FC<Props> = ({ gameState }) => {
         const x = (i * 350) - (worldOffset * parallaxFactor); 
         const bY = groundY - bH;
         if (x + bW < 0 || x > canvas.width) continue;
-        
-        // Add const keyword to missing variable declarations
         const winW = 12; const winH = 18; const padding = 25; const gapX = 35; const gapY = 45; const cols = 4;
         const rows = Math.floor((bH - 60) / gapY);
         for (let r = 0; r < rows; r++) {
           for (let c = 0; c < cols; c++) {
             const winX = x + padding + c * gapX;
             const winY = bY + 40 + r * gapY;
-            
-            // PREVENT WINDOWS FROM SHOWING BEHIND ANY BILLBOARDS
             const isInsideAnyBillboard = billboards.some(bb => {
                 const bbX = bb.x - worldOffset - 140;
                 const bbY = groundY - 190;
                 return winX > bbX - 5 && winX < bbX + 285 && winY > bbY - 5 && winY < bbY + 155;
             });
-
             if (!isInsideAnyBillboard && (i + r * 3 + c) % 5 !== 0) {
               ctx.fillRect(winX, winY, winW, winH);
             }
@@ -364,7 +402,6 @@ const GameCanvas: React.FC<Props> = ({ gameState }) => {
       }
       ctx.restore();
 
-      // --- RAIN RENDERING ---
       rain.forEach(r => {
         const sx = r.x; const sy = r.y; let lightVal = 0.1 + lightningIntensity * 0.4;
         lamps.forEach(lamp => {
@@ -417,11 +454,9 @@ const GameCanvas: React.FC<Props> = ({ gameState }) => {
         const beamLength = 300;
         const beamEndHalfWidth = 150; 
         const beamStartHalfWidth = 5; 
-        
         const fHaze = ctx.createLinearGradient(beamOriginX, beamOriginY, beamOriginX + beamLength * dirF, beamOriginY);
         fHaze.addColorStop(0, 'rgba(255, 255, 255, 0.08)'); fHaze.addColorStop(1, 'rgba(255, 255, 255, 0)');
         ctx.fillStyle = fHaze; 
-        
         ctx.beginPath(); 
         ctx.moveTo(beamOriginX, beamOriginY - beamStartHalfWidth);
         ctx.lineTo(beamOriginX + beamLength * dirF, beamOriginY - beamEndHalfWidth);
@@ -447,7 +482,6 @@ const GameCanvas: React.FC<Props> = ({ gameState }) => {
         ctx.shadowBlur = 8; ctx.shadowColor = ft.color || 'rgba(255, 0, 0, 0.8)'; ctx.font = 'bold 32px "Creepster", cursive'; ctx.textAlign = 'center'; ctx.fillText(ft.text, screenX, groundY + ft.y); ctx.restore();
       });
 
-      // END SCREEN SHAKE
       ctx.restore();
     };
 
