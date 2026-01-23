@@ -124,7 +124,15 @@ const GameCanvas: React.FC<Props> = ({ gameState }) => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       animationTime.current += 0.15;
       
-      const { player, lamps, billboards, props, pits, enemies, coins, collectingCoins, casings, bloodParticles, floatingTexts, rain, worldOffset, isMoving, muzzleFlash, lightningIntensity } = gameState;
+      const { player, lamps, billboards, props, pits, enemies, coins, collectingCoins, casings, bloodParticles, floatingTexts, rain, worldOffset, isMoving, muzzleFlash, lightningIntensity, screenShake } = gameState;
+
+      // START SCREEN SHAKE
+      ctx.save();
+      if (screenShake > 0) {
+        const sx = (Math.random() - 0.5) * screenShake;
+        const sy = (Math.random() - 0.5) * screenShake;
+        ctx.translate(sx, sy);
+      }
 
       // Background Buildings - Silhouette pass
       const parallaxFactor = 0.2;
@@ -293,6 +301,7 @@ const GameCanvas: React.FC<Props> = ({ gameState }) => {
         lctx.beginPath();
         lctx.moveTo(beamOriginX, beamOriginY - beamStartHalfWidth);
         lctx.lineTo(beamOriginX + beamLength * dirF, beamOriginY - beamEndHalfWidth);
+        lctx.lineTo(beamOriginX + beamLength * dirF, beamEndHalfWidth > 0 ? beamOriginY + beamEndHalfWidth : beamOriginY);
         lctx.lineTo(beamOriginX + beamLength * dirF, beamOriginY + beamEndHalfWidth);
         lctx.lineTo(beamOriginX, beamOriginY + beamStartHalfWidth);
         lctx.closePath(); 
@@ -425,6 +434,9 @@ const GameCanvas: React.FC<Props> = ({ gameState }) => {
         const screenX = ft.x - worldOffset; ctx.save(); ctx.globalAlpha = ft.opacity; ctx.fillStyle = ft.color || '#ff1a1a';
         ctx.shadowBlur = 8; ctx.shadowColor = ft.color || 'rgba(255, 0, 0, 0.8)'; ctx.font = 'bold 32px "Creepster", cursive'; ctx.textAlign = 'center'; ctx.fillText(ft.text, screenX, groundY + ft.y); ctx.restore();
       });
+
+      // END SCREEN SHAKE
+      ctx.restore();
     };
 
     let animationId = requestAnimationFrame(function loop() { draw(); animationId = requestAnimationFrame(loop); });

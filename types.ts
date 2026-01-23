@@ -127,4 +127,5 @@ export interface GameState {
   isMoving: boolean;
   muzzleFlash: number;
   lightningIntensity: number;
+  screenShake: number;
 }

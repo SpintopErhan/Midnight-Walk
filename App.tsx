@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import GameCanvas from './components/GameCanvas.tsx';
 import UIOverlay from './components/UIOverlay.tsx';
@@ -134,7 +135,8 @@ const generateInitialGameState = (): GameState => {
     worldOffset: 0,
     isMoving: false,
     muzzleFlash: 0,
-    lightningIntensity: 0
+    lightningIntensity: 0,
+    screenShake: 0
   };
 };
 
@@ -280,6 +282,10 @@ const App: React.FC = () => {
       lastTime.current = time;
 
       setGameState(prev => {
+        // Screen shake decay always happens
+        let nextScreenShake = prev.screenShake * 0.9 * (1 - (0.05 * dt));
+        if (nextScreenShake < 0.1) nextScreenShake = 0;
+
         if (!gameStarted || prev.player.hp <= 0 || isMenuOpen) {
             const sW = typeof window !== 'undefined' ? window.innerWidth : 1000;
             const sH = typeof window !== 'undefined' ? window.innerHeight : 800;
@@ -309,7 +315,7 @@ const App: React.FC = () => {
               nextLightningIntensity = 1.0;
             }
 
-            return { ...prev, rain: nextRain, lamps: nextLamps, lightningIntensity: nextLightningIntensity };
+            return { ...prev, rain: nextRain, lamps: nextLamps, lightningIntensity: nextLightningIntensity, screenShake: nextScreenShake };
         }
 
         const nextPlayer = { ...prev.player, pos: { ...prev.player.pos }, vel: { ...prev.player.vel } };
@@ -377,6 +383,7 @@ const App: React.FC = () => {
         if (shootCooldown.current > 0) shootCooldown.current -= dt;
         if (isMouseDown.current && shootCooldown.current <= 0) {
           nextMuzzleFlash = 1.0;
+          nextScreenShake = Math.min(nextScreenShake + 4, 15); // Add shake on shoot
           shootCooldown.current = 7;
           firedThisFrame = true;
           const bulletRange = 600;
@@ -657,6 +664,7 @@ const App: React.FC = () => {
           if (isColliding && now - updatedEnemy.lastAttackTime > 1000) {
             const dmg = 10 + Math.floor(Math.random() * 6);
             nextPlayer.hp = Math.max(0, nextPlayer.hp - dmg);
+            nextScreenShake = Math.min(nextScreenShake + 20, 40); // Large shake on damage
             const pushDir = nextPlayer.pos.x < updatedEnemy.x ? -1 : 1;
             nextPlayer.vel.x = pushDir * 10; 
             nextPlayer.vel.y = -7.5; 
@@ -780,7 +788,8 @@ const App: React.FC = () => {
           lightningIntensity: nextLightningIntensity,
           worldOffset: nextWorldOffset,
           isMoving: Math.abs(nextPlayer.vel.x) > 0.1,
-          lamps: nextLamps
+          lamps: nextLamps,
+          screenShake: nextScreenShake
         };
       });
       requestRef.current = requestAnimationFrame(update);
@@ -837,7 +846,6 @@ const App: React.FC = () => {
                 <div className="flex flex-col gap-4 w-full max-w-[240px]">
                   <button 
                     onClick={() => handleRestart()}
-                    onTouchEnd={(e) => { e.preventDefault(); handleRestart(); }}
                     className="px-6 py-4 bg-red-950/40 border-2 border-red-600/40 rounded-full text-lg sm:text-xl uppercase tracking-widest font-creepster hover:bg-red-800/40 hover:border-red-500 transition-all active:scale-95 pointer-events-auto shadow-[0_0_30px_rgba(255,0,0,0.2)]"
                   >
                     Try Again
