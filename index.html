@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -34,6 +35,40 @@
             height: 100vh;
             height: 100dvh;
         }
+
+        /* Portrait Warning Overlay */
+        #orientation-warning {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: #000;
+            z-index: 9999;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #ef4444;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        @media (orientation: portrait) {
+            .mobile-touch #orientation-warning {
+                display: flex;
+            }
+        }
+        
+        .rotate-icon {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+            animation: rotateDevice 2s ease-in-out infinite;
+        }
+
+        @keyframes rotateDevice {
+            0% { transform: rotate(0deg); }
+            50% { transform: rotate(-90deg); }
+            100% { transform: rotate(0deg); }
+        }
     </style>
 <script type="importmap">
 {
@@ -48,7 +83,17 @@
 </head>
 <body>
     <div id="root"></div>
-    <!-- Giriş noktası scripti eklendi -->
+    
+    <!-- Portrait Warning -->
+    <div id="orientation-warning">
+        <svg class="rotate-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+            <path d="M12 18h.01"></path>
+        </svg>
+        <h2 class="font-creepster text-3xl mb-4 uppercase tracking-widest">Landscape Required</h2>
+        <p class="font-inter text-xs text-white/40 uppercase tracking-[0.2em]">Please rotate your device to play</p>
+    </div>
+
     <script type="module" src="./index.tsx"></script>
 </body>
 </html>

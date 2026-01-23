@@ -189,6 +189,15 @@ const App: React.FC = () => {
     }
   }, []);
 
+  // Update body class for touch/orientation detection
+  useEffect(() => {
+    if (controlMode === 'touch') {
+        document.body.classList.add('mobile-touch');
+    } else {
+        document.body.classList.remove('mobile-touch');
+    }
+  }, [controlMode]);
+
   const handleUpdateControlMode = (mode: 'keyboard' | 'touch') => {
     setControlMode(mode);
     localStorage.setItem(STORAGE_KEY_CONTROL, mode);
@@ -202,21 +211,35 @@ const App: React.FC = () => {
     });
   };
 
-  const toggleFullscreen = useCallback(() => {
+  const toggleFullscreen = useCallback(async () => {
     if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch(err => {
-        console.warn(`Fullscreen request failed: ${err.message}`);
-      });
+      try {
+        await document.documentElement.requestFullscreen();
+        if ('orientation' in screen && (screen.orientation as any).lock) {
+            await (screen.orientation as any).lock('landscape').catch(() => {});
+        }
+      } catch (err) {
+        console.warn(`Fullscreen/Orientation request failed: ${err}`);
+      }
     } else {
       document.exitFullscreen();
     }
   }, []);
 
-  const handleStartGame = useCallback(() => {
-    // Attempt fullscreen on start
-    if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(() => {});
-    }
+  const handleStartGame = useCallback(async () => {
+    // Attempt fullscreen and orientation lock on start
+    try {
+        if (!document.fullscreenElement) {
+            await document.documentElement.requestFullscreen().catch(() => {});
+        }
+        // Try to lock orientation to landscape if supported
+        if ('orientation' in screen && (screen.orientation as any).lock) {
+            await (screen.orientation as any).lock('landscape').catch((e: any) => {
+                console.log("Orientation lock failed (might be system locked):", e);
+            });
+        }
+    } catch (e) {}
+    
     setGameStarted(true);
   }, []);
 
