@@ -197,27 +197,29 @@ const App: React.FC = () => {
     }
   }, [controlMode]);
 
-  // Handle Mobile Hardware Back Button
+  // Handle Mobile Hardware Back Button (Refined)
   useEffect(() => {
     const handlePopState = (e: PopStateEvent) => {
       if (gameStarted) {
-        // We catch the back button and toggle the menu
-        setIsMenuOpen(true);
-        // Push the state again so the back button is still intercepted next time
-        window.history.pushState({ menu: true }, "");
+        // If back button is pressed, activate menu and trap the next back press
+        if (!isMenuOpen) {
+          setIsMenuOpen(true);
+          window.history.pushState({ inGame: true }, "");
+        } else {
+          // If menu is already open and they press back again, they probably want to quit
+          handleMainMenu();
+        }
       }
     };
 
     if (gameStarted) {
-      // Add a dummy entry to history to intercept back press
-      window.history.pushState({ menu: true }, "");
       window.addEventListener('popstate', handlePopState);
     }
 
     return () => {
       window.removeEventListener('popstate', handlePopState);
     };
-  }, [gameStarted]);
+  }, [gameStarted, isMenuOpen]);
 
   const ensureFullscreen = useCallback(async () => {
     try {
@@ -258,6 +260,8 @@ const App: React.FC = () => {
 
   const handleStartGame = useCallback(async () => {
     await ensureFullscreen();
+    // Create a history entry to trap the back button
+    window.history.pushState({ inGame: true }, "");
     setGameStarted(true);
   }, [ensureFullscreen]);
 
@@ -280,9 +284,9 @@ const App: React.FC = () => {
     setGameStarted(false);
     setIsMenuOpen(false);
     setGameState(generateInitialGameState());
-    // Clear history entry if we're going back to main menu
-    if (window.history.length > 1) {
-        window.history.back();
+    // Try to clear the "trapped" state if possible
+    if (window.history.state?.inGame) {
+      window.history.back();
     }
   }, []);
 
@@ -567,7 +571,7 @@ const App: React.FC = () => {
                   ...enemy, 
                   hp: newHp, 
                   isAggroed: true,
-                  vel: { x: bulletDir * 6, y: -5 } 
+                  vel: { x: bulletDir * 6, y: -3.5 } 
                 };
               }
               return enemy;
@@ -679,8 +683,8 @@ const App: React.FC = () => {
           
           if (nextPlayer.isFlashlightOn) {
             const facingCorrectWay = nextPlayer.direction === 'right' ? distToPlayer > 0 : distToPlayer < 0;
-            // FLASHY UPGRADE: Menzi 350'den 500'e çıkarıldı.
-            if (facingCorrectWay && absDist < 500) updatedEnemy.isAggroed = true;
+            // REVERTED: Menzil tekrar 350 birime çekildi.
+            if (facingCorrectWay && absDist < 350) updatedEnemy.isAggroed = true;
           }
           if (!updatedEnemy.isAggroed && firedThisFrame && absDist < 500) updatedEnemy.isAggroed = true;
 
