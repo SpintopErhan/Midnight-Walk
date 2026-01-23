@@ -62,7 +62,7 @@ const UIOverlay: React.FC<Props> = ({
     { id: 'damage', name: 'Lead Bullets', cost: 200, desc: '+5 Bullet Damage', icon: '💥' },
   ];
 
-  // Calculate percentages safely
+  // Calculate percentages safely - clamped and formatted for CSS
   const hpPercent = Math.max(0, Math.min(100, (playerHp / playerMaxHp) * 100));
   const batteryPercent = Math.max(0, Math.min(100, (flashlightBattery / flashlightMaxBattery) * 100));
 
@@ -85,8 +85,9 @@ const UIOverlay: React.FC<Props> = ({
         <div className="flex flex-col items-center w-24">
           <span className="text-[10px] tracking-widest text-red-500 opacity-60 uppercase">Health</span>
           <div className="w-full h-1.5 bg-red-950 rounded-full mt-1 border border-red-500/20 overflow-hidden">
+            {/* REMOVED transition-[width] to fix mobile sync issues */}
             <div 
-              className="h-full bg-red-600 transition-[width] duration-150 ease-out" 
+              className="h-full bg-red-600" 
               style={{ width: `${hpPercent}%` }}
             ></div>
           </div>
@@ -96,8 +97,9 @@ const UIOverlay: React.FC<Props> = ({
         <div className="flex flex-col items-center w-24">
           <span className="text-[10px] tracking-widest text-blue-200 opacity-60 uppercase">Battery</span>
           <div className="w-full h-1.5 bg-blue-950 rounded-full mt-1 border border-blue-500/20 overflow-hidden">
+            {/* REMOVED transition-[width] and simplified styling to ensure zero means zero on all browsers */}
             <div 
-              className={`h-full bg-blue-400 transition-[width] duration-150 ease-out ${isFlashlightOn ? 'animate-pulse' : ''}`} 
+              className={`h-full bg-blue-400 ${isFlashlightOn ? 'animate-pulse' : ''}`} 
               style={{ width: `${batteryPercent}%` }}
             ></div>
           </div>
