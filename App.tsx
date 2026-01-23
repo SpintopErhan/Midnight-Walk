@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import GameCanvas from './components/GameCanvas.tsx';
 import UIOverlay from './components/UIOverlay.tsx';
+import StartScreen from './components/StartScreen.tsx';
 import { GameState, Player, StreetLamp, StreetProp, PropType, Enemy, Pit, GoldCoin, Casing, CollectingCoin, BloodParticle, RainParticle } from './types.ts';
 
 const ATMOSPHERIC_MESSAGES = [
@@ -127,6 +128,7 @@ const App: React.FC = () => {
   const [gameState, setGameState] = useState<GameState>(generateInitialGameState);
   const [currentMessage, setCurrentMessage] = useState<string>(ATMOSPHERIC_MESSAGES[0]);
   const [deathReason, setDeathReason] = useState<'enemy' | 'falling' | null>(null);
+  const [gameStarted, setGameStarted] = useState<boolean>(false);
   
   const keysPressed = useRef<{ [key: string]: boolean }>({});
   const jumpBuffered = useRef<boolean>(false);
@@ -186,12 +188,12 @@ const App: React.FC = () => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       keysPressed.current[e.code] = true;
-      if (e.code === 'KeyF' && gameState.player.hp > 0) {
+      if (e.code === 'KeyF' && gameState.player.hp > 0 && gameStarted) {
         toggleFlashlight();
       }
     };
     const handleKeyUp = (e: KeyboardEvent) => { keysPressed.current[e.code] = false; };
-    const handleMouseDown = () => { isMouseDown.current = true; };
+    const handleMouseDown = () => { if (gameStarted) isMouseDown.current = true; };
     const handleMouseUp = () => { isMouseDown.current = false; };
 
     window.addEventListener('keydown', handleKeyDown);
@@ -205,7 +207,7 @@ const App: React.FC = () => {
       window.removeEventListener('mousedown', handleMouseDown);
       window.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [gameState.player.hp, toggleFlashlight]);
+  }, [gameState.player.hp, toggleFlashlight, gameStarted]);
 
   useEffect(() => {
     const update = (time: number) => {
@@ -213,7 +215,32 @@ const App: React.FC = () => {
       lastTime.current = time;
 
       setGameState(prev => {
-        if (prev.player.hp <= 0) return prev;
+        // Only run full physics and logic if game is started and player is alive
+        if (!gameStarted || prev.player.hp <= 0) {
+            // Even if not started, we still update rain and lamps for atmosphere in Start Screen
+            const sW = typeof window !== 'undefined' ? window.innerWidth : 1000;
+            const sH = typeof window !== 'undefined' ? window.innerHeight : 800;
+            const windX = -2.5;
+
+            let nextLamps = prev.lamps.map(lamp => {
+              if (!lamp.isBroken) return lamp;
+              let newIntensity = lamp.intensity;
+              if (Math.random() < 0.05 * dt) {
+                newIntensity = Math.random() < 0.3 ? 0 : 0.9;
+              }
+              return { ...lamp, intensity: Math.max(0, Math.min(0.9, newIntensity)) };
+            });
+
+            let nextRain = prev.rain.map(r => {
+              let nx = r.x + windX * dt;
+              let ny = r.y + r.speed * dt;
+              if (ny > sH) { ny = -20; nx = Math.random() * (sW + 200); }
+              if (nx < -100) nx = sW + 100;
+              return { ...r, x: nx, y: ny };
+            });
+
+            return { ...prev, rain: nextRain, lamps: nextLamps };
+        }
 
         const nextPlayer = { ...prev.player, pos: { ...prev.player.pos }, vel: { ...prev.player.vel } };
         let nextEnemies = [...prev.enemies];
@@ -697,43 +724,50 @@ const App: React.FC = () => {
 
     requestRef.current = requestAnimationFrame(update);
     return () => cancelAnimationFrame(requestRef.current);
-  }, [updateAtmosphere, toggleFlashlight]);
+  }, [updateAtmosphere, toggleFlashlight, gameStarted]);
 
   return (
     <div className="relative w-screen h-screen-dynamic bg-black overflow-hidden cursor-crosshair">
       <GameCanvas gameState={gameState} />
-      <UIOverlay 
-        playerHp={gameState.player.hp}
-        flashlightBattery={gameState.player.flashlightBattery}
-        score={gameState.score}
-        message={currentMessage} 
-        loading={false} 
-        distance={Math.max(0, Math.floor((gameState.player.pos.x - 100) / 10))} 
-        isFlashlightOn={gameState.player.isFlashlightOn}
-        onControl={handleTouchControl}
-      />
       
-      {gameState.player.hp <= 0 && (
-        <div className="absolute inset-0 bg-black/95 flex flex-col items-center justify-center text-white z-50 p-6 text-center animate-in fade-in duration-1000">
-          {deathReason === 'falling' ? (
-            <>
-              <h2 className="text-3xl sm:text-6xl md:text-8xl font-creepster mb-4 text-blue-600 drop-shadow-[0_0_20px_rgba(37,99,235,0.7)] break-words max-w-full uppercase">THE ABYSS CONSUMED YOU</h2>
-              <p className="text-[10px] sm:text-sm md:text-xl mb-10 tracking-[0.2em] opacity-40 uppercase">You stepped into the eternal void</p>
-            </>
-          ) : (
-            <>
-              <h2 className="text-3xl sm:text-6xl md:text-8xl font-creepster mb-4 text-red-600 drop-shadow-[0_0_20px_rgba(255,0,0,0.7)] break-words max-w-full uppercase">DARKNESS TOOK YOU</h2>
-              <p className="text-[10px] sm:text-sm md:text-xl mb-10 tracking-[0.2em] opacity-40 uppercase">Your soul belongs to the shadows now</p>
-            </>
+      {!gameStarted ? (
+        <StartScreen onStart={() => setGameStarted(true)} />
+      ) : (
+        <>
+          <UIOverlay 
+            playerHp={gameState.player.hp}
+            flashlightBattery={gameState.player.flashlightBattery}
+            score={gameState.score}
+            message={currentMessage} 
+            loading={false} 
+            distance={Math.max(0, Math.floor((gameState.player.pos.x - 100) / 10))} 
+            isFlashlightOn={gameState.player.isFlashlightOn}
+            onControl={handleTouchControl}
+          />
+          
+          {gameState.player.hp <= 0 && (
+            <div className="absolute inset-0 bg-black/95 flex flex-col items-center justify-center text-white z-50 p-6 text-center animate-in fade-in duration-1000">
+              {deathReason === 'falling' ? (
+                <>
+                  <h2 className="text-3xl sm:text-6xl md:text-8xl font-creepster mb-4 text-blue-600 drop-shadow-[0_0_20px_rgba(37,99,235,0.7)] break-words max-w-full uppercase">THE ABYSS CONSUMED YOU</h2>
+                  <p className="text-[10px] sm:text-sm md:text-xl mb-10 tracking-[0.2em] opacity-40 uppercase">You stepped into the eternal void</p>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-3xl sm:text-6xl md:text-8xl font-creepster mb-4 text-red-600 drop-shadow-[0_0_20px_rgba(255,0,0,0.7)] break-words max-w-full uppercase">DARKNESS TOOK YOU</h2>
+                  <p className="text-[10px] sm:text-sm md:text-xl mb-10 tracking-[0.2em] opacity-40 uppercase">Your soul belongs to the shadows now</p>
+                </>
+              )}
+              <button 
+                onClick={() => handleRestart()}
+                onTouchEnd={() => handleRestart()}
+                className="px-10 py-3.5 sm:px-14 sm:py-4 bg-red-950/30 border-2 border-red-600/40 rounded-full text-sm sm:text-xl uppercase tracking-widest font-black hover:bg-red-800/40 hover:border-red-500 transition-all active:scale-90 pointer-events-auto shadow-[0_0_30px_rgba(255,0,0,0.15)]"
+              >
+                Try Again
+              </button>
+            </div>
           )}
-          <button 
-            onClick={() => handleRestart()}
-            onTouchEnd={() => handleRestart()}
-            className="px-10 py-3.5 sm:px-14 sm:py-4 bg-red-950/30 border-2 border-red-600/40 rounded-full text-sm sm:text-xl uppercase tracking-widest font-black hover:bg-red-800/40 hover:border-red-500 transition-all active:scale-90 pointer-events-auto shadow-[0_0_30px_rgba(255,0,0,0.15)]"
-          >
-            Try Again
-          </button>
-        </div>
+        </>
       )}
     </div>
   );
