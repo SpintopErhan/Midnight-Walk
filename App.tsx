@@ -821,32 +821,34 @@ const App: React.FC = () => {
           />
           
           {gameState.player.hp <= 0 && (
-            <div className="absolute inset-0 bg-black/95 flex flex-col items-center justify-center text-white z-[100] p-6 text-center animate-in fade-in duration-1000">
-              {deathReason === 'falling' ? (
-                <>
-                  <h2 className="text-3xl sm:text-6xl md:text-8xl font-creepster mb-4 text-blue-600 drop-shadow-[0_0_20px_rgba(37,99,235,0.7)] break-words max-w-full uppercase">THE ABYSS CONSUMED YOU</h2>
-                  <p className="text-[10px] sm:text-sm md:text-xl mb-10 tracking-[0.2em] opacity-40 uppercase">You stepped into the eternal void</p>
-                </>
-              ) : (
-                <>
-                  <h2 className="text-3xl sm:text-6xl md:text-8xl font-creepster mb-4 text-red-600 drop-shadow-[0_0_20px_rgba(255,0,0,0.7)] break-words max-w-full uppercase">DARKNESS TOOK YOU</h2>
-                  <p className="text-[10px] sm:text-sm md:text-xl mb-10 tracking-[0.2em] opacity-40 uppercase">Your soul belongs to the shadows now</p>
-                </>
-              )}
-              <div className="flex flex-col gap-4">
-                <button 
-                  onClick={() => handleRestart()}
-                  onTouchEnd={() => handleRestart()}
-                  className="px-10 py-3.5 sm:px-14 sm:py-4 bg-red-950/30 border-2 border-red-600/40 rounded-full text-sm sm:text-xl uppercase tracking-widest font-black hover:bg-red-800/40 hover:border-red-500 transition-all active:scale-90 pointer-events-auto shadow-[0_0_30_rgba(255,0,0,0.15)]"
-                >
-                  Try Again
-                </button>
-                <button 
-                  onClick={handleMainMenu}
-                  className="px-8 py-2 border border-white/10 rounded-full text-white/40 text-[10px] font-black tracking-[0.3em] uppercase hover:text-white hover:bg-white/10 transition-all pointer-events-auto"
-                >
-                  Return to Main Menu
-                </button>
+            <div className="fixed inset-0 bg-black/95 flex flex-col items-center justify-center text-white z-[200] px-6 py-10 text-center animate-in fade-in duration-1000 overflow-y-auto">
+              <div className="flex flex-col items-center justify-center min-h-full w-full max-w-4xl mx-auto">
+                {deathReason === 'falling' ? (
+                  <>
+                    <h2 className="text-4xl sm:text-6xl md:text-8xl font-creepster mb-4 text-blue-600 drop-shadow-[0_0_20px_rgba(37,99,235,0.7)] break-words max-w-full uppercase leading-tight">THE ABYSS CONSUMED YOU</h2>
+                    <p className="text-[12px] sm:text-sm md:text-xl mb-12 tracking-[0.2em] opacity-40 uppercase">You stepped into the eternal void</p>
+                  </>
+                ) : (
+                  <>
+                    <h2 className="text-4xl sm:text-6xl md:text-8xl font-creepster mb-4 text-red-600 drop-shadow-[0_0_20px_rgba(255,0,0,0.7)] break-words max-w-full uppercase leading-tight">DARKNESS TOOK YOU</h2>
+                    <p className="text-[12px] sm:text-sm md:text-xl mb-12 tracking-[0.2em] opacity-40 uppercase">Your soul belongs to the shadows now</p>
+                  </>
+                )}
+                <div className="flex flex-col gap-6 w-full max-w-[280px]">
+                  <button 
+                    onClick={() => handleRestart()}
+                    onTouchEnd={(e) => { e.preventDefault(); handleRestart(); }}
+                    className="px-8 py-4 bg-red-950/30 border-2 border-red-600/40 rounded-full text-lg sm:text-xl uppercase tracking-widest font-creepster hover:bg-red-800/40 hover:border-red-500 transition-all active:scale-95 pointer-events-auto shadow-[0_0_30px_rgba(255,0,0,0.15)]"
+                  >
+                    Try Again
+                  </button>
+                  <button 
+                    onClick={handleMainMenu}
+                    className="px-6 py-3 border border-white/10 rounded-full text-white/40 text-[11px] font-black tracking-[0.3em] uppercase hover:text-white hover:bg-white/10 transition-all pointer-events-auto active:scale-95"
+                  >
+                    Return to Main Menu
+                  </button>
+                </div>
               </div>
             </div>
           )}
