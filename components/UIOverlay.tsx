@@ -95,9 +95,18 @@ const UIOverlay: React.FC<Props> = ({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Full Screen Toggle Button */}
+          <button 
+            onClick={onToggleFullscreen}
+            className="pointer-events-auto px-3 py-1 bg-white/5 border border-white/20 rounded hover:bg-white/10 transition-colors active:scale-95 flex items-center justify-center min-w-[44px]"
+            title="Toggle Fullscreen"
+          >
+            <span className="text-[10px] tracking-widest text-white/40 uppercase font-black">{isFullscreen ? 'EXIT' : 'FULL'}</span>
+          </button>
+          
           <button 
             onClick={onToggleMenu}
-            className="pointer-events-auto px-3 py-1 bg-white/5 border border-white/20 rounded hover:bg-white/10 transition-colors active:scale-95"
+            className="pointer-events-auto px-3 py-1 bg-white/5 border border-white/20 rounded hover:bg-white/10 transition-colors active:scale-95 flex items-center justify-center min-w-[44px]"
           >
             <span className="text-[10px] tracking-widest text-white/40 uppercase font-black">MENU</span>
           </button>
