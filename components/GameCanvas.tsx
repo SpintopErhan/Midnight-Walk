@@ -325,18 +325,21 @@ const GameCanvas: React.FC<Props> = ({ gameState }) => {
 
       if (player.isFlashlightOn) {
         const beamOriginX = player.direction === 'right' ? fHandX + fWidth : fHandX; const beamOriginY = fHandY + fHeight / 2;
-        const spillGrad = lctx.createRadialGradient(beamOriginX, beamOriginY, 0, beamOriginX, beamOriginY, 50);
-        spillGrad.addColorStop(0, `rgba(255, 255, 255, ${0.5 * flashlightIntensity})`); 
+        // FLASHY UPGRADE: Işığın kaynağındaki parlama dairesi 50'den 75'e çıkarıldı.
+        const spillGrad = lctx.createRadialGradient(beamOriginX, beamOriginY, 0, beamOriginX, beamOriginY, 75);
+        spillGrad.addColorStop(0, `rgba(255, 255, 255, ${0.7 * flashlightIntensity})`); 
         spillGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
-        lctx.fillStyle = spillGrad; lctx.beginPath(); lctx.arc(beamOriginX, beamOriginY, 50, 0, Math.PI * 2); lctx.fill();
+        lctx.fillStyle = spillGrad; lctx.beginPath(); lctx.arc(beamOriginX, beamOriginY, 75, 0, Math.PI * 2); lctx.fill();
         
-        const beamLength = 350; 
-        const beamEndHalfWidth = 150; 
+        // FLASHY UPGRADE: Menzil 350 -> 500, Uç genişliği 150 -> 220
+        const beamLength = 500; 
+        const beamEndHalfWidth = 220; 
         const beamStartHalfWidth = 5; 
         const dirF = player.direction === 'right' ? 1 : -1;
         
         const flGrad = lctx.createRadialGradient(beamOriginX, beamOriginY, 0, beamOriginX, beamOriginY, beamLength);
-        flGrad.addColorStop(0, `rgba(255, 255, 255, ${0.9 * flashlightIntensity})`); 
+        // Opaklık artırıldı
+        flGrad.addColorStop(0, `rgba(255, 255, 255, ${1.0 * flashlightIntensity})`); 
         flGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
         lctx.fillStyle = flGrad; 
         
@@ -423,10 +426,11 @@ const GameCanvas: React.FC<Props> = ({ gameState }) => {
         });
         if (player.isFlashlightOn) {
           const beamOriginX = player.direction === 'right' ? fHandX + fWidth : fHandX; const beamOriginY = fHandY + fHeight / 2;
+          // FLASHY UPGRADE: Yağmur damlalarının ışık fark etme mesafesi 350 -> 500
           const dx = sx - beamOriginX; const dy = sy - beamOriginY; const dist = Math.sqrt(dx * dx + dy * dy);
           const angle = Math.atan2(dy, dx); const dirF = player.direction === 'right' ? 0 : Math.PI;
           const angleDiff = Math.abs(angle - dirF);
-          if (dist < 350 && (angleDiff < 0.5 || angleDiff > Math.PI * 2 - 0.5)) lightVal = Math.max(lightVal, (1 - dist / 350) * 0.8 * flashlightIntensity);
+          if (dist < 500 && (angleDiff < 0.5 || angleDiff > Math.PI * 2 - 0.5)) lightVal = Math.max(lightVal, (1 - dist / 500) * 0.8 * flashlightIntensity);
         }
         const alpha = 0.05 + lightVal * 0.4; const brightness = 100 + lightVal * 155;
         ctx.strokeStyle = `rgba(${brightness}, ${brightness}, ${brightness + 20}, ${alpha})`; ctx.lineWidth = 1;
@@ -463,11 +467,12 @@ const GameCanvas: React.FC<Props> = ({ gameState }) => {
 
       if (player.isFlashlightOn) {
         const beamOriginX = player.direction === 'right' ? fHandX + fWidth : fHandX; const beamOriginY = fHandY + fHeight / 2; const dirF = player.direction === 'right' ? 1 : -1;
-        const beamLength = 300;
-        const beamEndHalfWidth = 150; 
+        // FLASHY UPGRADE: Havadaki ışık huzmesinin (haze) menzili 300 -> 450, opaklığı 0.08 -> 0.15
+        const beamLength = 450;
+        const beamEndHalfWidth = 200; 
         const beamStartHalfWidth = 5; 
         const fHaze = ctx.createLinearGradient(beamOriginX, beamOriginY, beamOriginX + beamLength * dirF, beamOriginY);
-        fHaze.addColorStop(0, `rgba(255, 255, 255, ${0.08 * flashlightIntensity})`); 
+        fHaze.addColorStop(0, `rgba(255, 255, 255, ${0.15 * flashlightIntensity})`); 
         fHaze.addColorStop(1, 'rgba(255, 255, 255, 0)');
         ctx.fillStyle = fHaze; 
         ctx.beginPath(); 

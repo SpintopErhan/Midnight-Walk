@@ -197,6 +197,28 @@ const App: React.FC = () => {
     }
   }, [controlMode]);
 
+  // Handle Mobile Hardware Back Button
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      if (gameStarted) {
+        // We catch the back button and toggle the menu
+        setIsMenuOpen(true);
+        // Push the state again so the back button is still intercepted next time
+        window.history.pushState({ menu: true }, "");
+      }
+    };
+
+    if (gameStarted) {
+      // Add a dummy entry to history to intercept back press
+      window.history.pushState({ menu: true }, "");
+      window.addEventListener('popstate', handlePopState);
+    }
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [gameStarted]);
+
   const ensureFullscreen = useCallback(async () => {
     try {
         if (!document.fullscreenElement) {
@@ -258,6 +280,10 @@ const App: React.FC = () => {
     setGameStarted(false);
     setIsMenuOpen(false);
     setGameState(generateInitialGameState());
+    // Clear history entry if we're going back to main menu
+    if (window.history.length > 1) {
+        window.history.back();
+    }
   }, []);
 
   const toggleFlashlight = useCallback(() => {
@@ -653,7 +679,8 @@ const App: React.FC = () => {
           
           if (nextPlayer.isFlashlightOn) {
             const facingCorrectWay = nextPlayer.direction === 'right' ? distToPlayer > 0 : distToPlayer < 0;
-            if (facingCorrectWay && absDist < 350) updatedEnemy.isAggroed = true;
+            // FLASHY UPGRADE: Menzi 350'den 500'e çıkarıldı.
+            if (facingCorrectWay && absDist < 500) updatedEnemy.isAggroed = true;
           }
           if (!updatedEnemy.isAggroed && firedThisFrame && absDist < 500) updatedEnemy.isAggroed = true;
 
