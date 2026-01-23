@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 
 interface Props {
@@ -9,10 +8,12 @@ interface Props {
   loading: boolean;
   distance: number;
   isFlashlightOn: boolean;
+  isFullscreen: boolean;
+  onToggleFullscreen: () => void;
   onControl: (control: string, active: boolean) => void;
 }
 
-const UIOverlay: React.FC<Props> = ({ playerHp, flashlightBattery, score, message, loading, distance, isFlashlightOn, onControl }) => {
+const UIOverlay: React.FC<Props> = ({ playerHp, flashlightBattery, score, message, loading, distance, isFlashlightOn, isFullscreen, onToggleFullscreen, onControl }) => {
   const [isBallooning, setIsBallooning] = useState(false);
   
   useEffect(() => {
@@ -51,6 +52,19 @@ const UIOverlay: React.FC<Props> = ({ playerHp, flashlightBattery, score, messag
         <div className="flex flex-col items-center">
           <span className="text-[10px] tracking-widest text-blue-200 opacity-60 uppercase">Battery</span>
           <p className={`text-xl font-bold tabular-nums ${flashlightBattery < 20 ? 'text-blue-500 animate-pulse' : 'text-blue-200'}`}>{Math.floor(flashlightBattery)}%</p>
+        </div>
+
+        {/* FULLSCREEN TOGGLE */}
+        <div className="flex flex-col items-center">
+          <button 
+            onClick={onToggleFullscreen}
+            onTouchEnd={(e) => { e.preventDefault(); onToggleFullscreen(); }}
+            className="pointer-events-auto px-3 py-1 bg-white/5 border border-white/20 rounded hover:bg-white/10 transition-colors active:scale-95"
+          >
+            <span className="text-[10px] tracking-widest text-white/40 uppercase font-black">
+              {isFullscreen ? 'EXIT' : 'FULL'}
+            </span>
+          </button>
         </div>
       </div>
 

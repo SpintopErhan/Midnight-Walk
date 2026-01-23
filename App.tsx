@@ -129,6 +129,7 @@ const App: React.FC = () => {
   const [currentMessage, setCurrentMessage] = useState<string>(ATMOSPHERIC_MESSAGES[0]);
   const [deathReason, setDeathReason] = useState<'enemy' | 'falling' | null>(null);
   const [gameStarted, setGameStarted] = useState<boolean>(false);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   
   const keysPressed = useRef<{ [key: string]: boolean }>({});
   const jumpBuffered = useRef<boolean>(false);
@@ -162,6 +163,24 @@ const App: React.FC = () => {
         player: { ...prev.player, isFlashlightOn: !prev.player.isFlashlightOn }
       };
     });
+  }, []);
+
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => {
+        console.error(`Error attempting to enable full-screen mode: ${err.message}`);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
 
   const handleTouchControl = useCallback((control: string, active: boolean) => {
@@ -215,9 +234,7 @@ const App: React.FC = () => {
       lastTime.current = time;
 
       setGameState(prev => {
-        // Only run full physics and logic if game is started and player is alive
         if (!gameStarted || prev.player.hp <= 0) {
-            // Even if not started, we still update rain and lamps for atmosphere in Start Screen
             const sW = typeof window !== 'undefined' ? window.innerWidth : 1000;
             const sH = typeof window !== 'undefined' ? window.innerHeight : 800;
             const windX = -2.5;
@@ -742,6 +759,8 @@ const App: React.FC = () => {
             loading={false} 
             distance={Math.max(0, Math.floor((gameState.player.pos.x - 100) / 10))} 
             isFlashlightOn={gameState.player.isFlashlightOn}
+            isFullscreen={isFullscreen}
+            onToggleFullscreen={toggleFullscreen}
             onControl={handleTouchControl}
           />
           
