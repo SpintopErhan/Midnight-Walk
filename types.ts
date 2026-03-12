@@ -82,6 +82,7 @@ export interface Enemy {
   height: number;
   isAggroed: boolean;
   lastAttackTime: number;
+  isStalker?: boolean;
 }
 
 export interface FloatingText {
@@ -161,4 +162,5 @@ export interface GameState {
   muzzleFlash: number;
   lightningIntensity: number;
   screenShake: number;
+  darknessTimer: number;
 }

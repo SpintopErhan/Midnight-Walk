@@ -158,7 +158,8 @@ const generateInitialGameState = (): GameState => {
     isMoving: false,
     muzzleFlash: 0,
     lightningIntensity: 0,
-    screenShake: 0
+    screenShake: 0,
+    darknessTimer: 0
   };
 };
 
@@ -453,11 +454,52 @@ const App: React.FC = () => {
         let nextLamps = [...prev.lamps];
         let nextRain = [...prev.rain];
         let nextLightningIntensity = prev.lightningIntensity;
+        let nextDarknessTimer = prev.darknessTimer;
         
         const speed = 4.5;
         const gravity = 0.6;
         const jumpForce = -12;
         const now = Date.now();
+
+        // Check if player is under any lamp
+        const isPlayerUnderLamp = nextLamps.some(lamp => {
+            const dist = Math.abs(lamp.x - nextPlayer.pos.x);
+            return dist < lamp.range && lamp.intensity > 0.2;
+        });
+
+        if (!isPlayerUnderLamp && !nextPlayer.isFlashlightOn) {
+            nextDarknessTimer += 16.66 * dt;
+            if (nextDarknessTimer > 6000) { // Stay 6s in total darkness
+                nextDarknessTimer = 0;
+                // Spawn Shadow Stalker
+                const stalkerX = nextPlayer.pos.x - 400; // Behind
+                nextEnemies.push({
+                    id: `stalker-${now}`,
+                    x: stalkerX,
+                    y: 0,
+                    vel: { x: 0, y: 0 },
+                    hp: 80,
+                    maxHp: 80,
+                    width: 40,
+                    height: 70,
+                    isAggroed: true,
+                    lastAttackTime: 0,
+                    isStalker: true
+                });
+                nextFloatingTexts.push({
+                    id: `stalker-spawn-${now}`,
+                    x: nextPlayer.pos.x,
+                    y: -150,
+                    vx: 0,
+                    vy: -0.5,
+                    text: "SOMETHING IS WATCHING",
+                    opacity: 1.0,
+                    color: '#6d28d9'
+                });
+            }
+        } else {
+            nextDarknessTimer = Math.max(0, nextDarknessTimer - 33 * dt);
+        }
 
         if (nextLightningIntensity > 0) {
           nextLightningIntensity -= 0.05 * dt;
@@ -784,7 +826,8 @@ const App: React.FC = () => {
           if (updatedEnemy.isAggroed) {
             if (Math.abs(updatedEnemy.vel.y) < 0.1) {
                const moveDir = distToPlayer > 0 ? -1 : 1;
-               updatedEnemy.vel.x = moveDir * (2.2 + Math.random() * 0.8); 
+               const moveSpeed = updatedEnemy.isStalker ? 3.5 : (2.2 + Math.random() * 0.8);
+               updatedEnemy.vel.x = moveDir * moveSpeed; 
             } else {
                updatedEnemy.vel.x *= 0.98;
             }
@@ -855,7 +898,7 @@ const App: React.FC = () => {
             Math.abs(updatedEnemy.y - nextPlayer.pos.y) < 50;
 
           if (isColliding && now - updatedEnemy.lastAttackTime > 1000) {
-            const dmg = 10 + Math.floor(Math.random() * 6);
+            const dmg = (updatedEnemy.isStalker ? 20 : 10) + Math.floor(Math.random() * 6);
             nextPlayer.hp = Math.max(0, nextPlayer.hp - dmg);
             nextScreenShake = Math.min(nextScreenShake + 20, 40);
             const pushDir = nextPlayer.pos.x < updatedEnemy.x ? -1 : 1;
@@ -871,7 +914,7 @@ const App: React.FC = () => {
               vy: -4,
               text: `-${dmg}`,
               opacity: 1.0,
-              color: '#ffffff'
+              color: updatedEnemy.isStalker ? '#6d28d9' : '#ffffff'
             });
           }
           return updatedEnemy;
@@ -984,7 +1027,8 @@ const App: React.FC = () => {
           worldOffset: nextWorldOffset,
           isMoving: Math.abs(nextPlayer.vel.x) > 0.1,
           lamps: nextLamps,
-          screenShake: nextScreenShake
+          screenShake: nextScreenShake,
+          darknessTimer: nextDarknessTimer
         };
       });
       requestRef.current = requestAnimationFrame(update);
@@ -1024,6 +1068,7 @@ const App: React.FC = () => {
             isInventoryOpen={isInventoryOpen}
             currentWeapon={gameState.player.currentWeapon}
             grenadeAmmo={gameState.player.grenadeAmmo}
+            darknessTimer={gameState.darknessTimer}
             onToggleMenu={() => setIsMenuOpen(p => !p)}
             onToggleFullscreen={toggleFullscreen}
             onControl={handleTouchControl}

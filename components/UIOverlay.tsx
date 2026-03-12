@@ -18,6 +18,7 @@ interface Props {
   grenadeAmmo: number;
   atUpgradeStation: boolean;
   nearestStationScreenX?: number | null;
+  darknessTimer: number;
   onToggleMenu: () => void;
   onToggleFullscreen: () => void;
   onControl: (control: string, active: boolean) => void;
@@ -43,6 +44,7 @@ const UIOverlay: React.FC<Props> = ({
   grenadeAmmo,
   atUpgradeStation,
   nearestStationScreenX,
+  darknessTimer,
   onToggleMenu,
   onToggleFullscreen, 
   onControl,
@@ -73,10 +75,22 @@ const UIOverlay: React.FC<Props> = ({
 
   const hpPercent = Math.max(0, Math.min(100, (playerHp / playerMaxHp) * 100));
   const batteryPercent = Math.max(0, Math.min(100, (flashlightBattery / flashlightMaxBattery) * 100));
+  
+  // Calculate darkness vignette intensity
+  const darknessIntensity = Math.min(0.8, (darknessTimer / 6000));
 
   return (
     <div className="absolute inset-0 pointer-events-none flex flex-col font-creepster text-white select-none overflow-hidden">
       
+      {/* Darkness Vignette Effect */}
+      <div 
+        className="absolute inset-0 transition-opacity duration-300 pointer-events-none z-[10]" 
+        style={{ 
+            boxShadow: `inset 0 0 ${darknessIntensity * 300}px ${darknessIntensity * 100}px black`,
+            opacity: darknessIntensity
+        }}
+      />
+
       {/* Top Stats Bar */}
       <div className="w-full bg-black/80 backdrop-blur-md border-b border-white/10 p-3 flex flex-row justify-around items-center z-[60]">
         
@@ -227,6 +241,13 @@ const UIOverlay: React.FC<Props> = ({
 
       <div className="flex-grow"></div>
       
+      {/* Darkness Warning Label */}
+      {darknessIntensity > 0.4 && (
+        <div className="absolute bottom-32 left-1/2 -translate-x-1/2 text-red-600 animate-pulse text-xl tracking-[0.5em] uppercase italic">
+            Get to the light
+        </div>
+      )}
+
       {/* Control Hint */}
       {!isMenuOpen && !isInventoryOpen && !showShop && (
         <div className="absolute bottom-8 left-8 bg-black/60 border border-white/10 px-4 py-2 rounded-full text-[10px] text-white/40 uppercase tracking-[0.2em] pointer-events-none">

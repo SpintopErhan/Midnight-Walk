@@ -228,14 +228,39 @@ const GameCanvas: React.FC<Props> = ({ gameState }) => {
         if (screenX < -100 || screenX > canvas.width + 100) return;
         const enemyY = groundY + enemy.y - enemy.height;
         const jitterX = Math.sin(animationTime.current * 4) * 2;
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.95)'; ctx.fillRect(screenX + jitterX, enemyY, enemy.width, enemy.height);
+        
+        if (enemy.isStalker) {
+            // Shadow Stalker Glitch Visuals
+            ctx.save();
+            ctx.fillStyle = `rgba(76, 29, 149, ${0.4 + Math.random() * 0.4})`;
+            for (let i = 0; i < 3; i++) {
+                const gx = screenX + (Math.random() - 0.5) * 15;
+                const gy = enemyY + (Math.random() - 0.5) * 15;
+                ctx.fillRect(gx, gy, enemy.width, enemy.height);
+            }
+            ctx.fillStyle = '#000000';
+            ctx.fillRect(screenX + jitterX, enemyY, enemy.width, enemy.height);
+            // Red eyes
+            ctx.fillStyle = '#ff0000';
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = 'red';
+            ctx.fillRect(screenX + jitterX + 10, enemyY + 20, 6, 4);
+            ctx.fillRect(screenX + jitterX + enemy.width - 16, enemyY + 20, 6, 4);
+            ctx.restore();
+        } else {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.95)'; 
+            ctx.fillRect(screenX + jitterX, enemyY, enemy.width, enemy.height);
+        }
+
         if (enemy.isAggroed) {
-          ctx.strokeStyle = '#4b5563'; ctx.lineWidth = 1; ctx.strokeRect(screenX + jitterX, enemyY, enemy.width, enemy.height);
-          ctx.fillStyle = '#ff0000'; ctx.shadowBlur = 15; ctx.shadowColor = 'red';
-          ctx.fillRect(screenX + jitterX + 6, enemyY + 15, 8, 6); ctx.fillRect(screenX + jitterX + enemy.width - 14, enemyY + 15, 8, 6);
-          ctx.shadowBlur = 0;
+          if (!enemy.isStalker) {
+            ctx.strokeStyle = '#4b5563'; ctx.lineWidth = 1; ctx.strokeRect(screenX + jitterX, enemyY, enemy.width, enemy.height);
+            ctx.fillStyle = '#ff0000'; ctx.shadowBlur = 15; ctx.shadowColor = 'red';
+            ctx.fillRect(screenX + jitterX + 6, enemyY + 15, 8, 6); ctx.fillRect(screenX + jitterX + enemy.width - 14, enemyY + 15, 8, 6);
+            ctx.shadowBlur = 0;
+          }
           ctx.fillStyle = 'rgba(31, 41, 55, 0.8)'; ctx.fillRect(screenX + jitterX, enemyY - 10, enemy.width, 4);
-          ctx.fillStyle = '#dc2626'; const healthPct = Math.max(0, enemy.hp / enemy.maxHp); ctx.fillRect(screenX + jitterX, enemyY - 10, enemy.width * healthPct, 4);
+          ctx.fillStyle = enemy.isStalker ? '#7c3aed' : '#dc2626'; const healthPct = Math.max(0, enemy.hp / enemy.maxHp); ctx.fillRect(screenX + jitterX, enemyY - 10, enemy.width * healthPct, 4);
         }
       });
 
