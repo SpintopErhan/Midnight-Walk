@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -35,7 +34,6 @@
             height: 100vh;
             height: 100dvh;
         }
-
         /* Portrait Warning Overlay */
         #orientation-warning {
             display: none;
@@ -51,12 +49,10 @@
             padding: 2rem;
             cursor: pointer;
         }
-
         /* Only show if control mode is touch AND in portrait */
         .mobile-touch-mode #orientation-warning {
             display: flex;
         }
-
         @media (orientation: landscape) {
             .mobile-touch-mode #orientation-warning {
                 display: none;
@@ -69,13 +65,11 @@
             margin-bottom: 20px;
             animation: rotateDevice 2s ease-in-out infinite;
         }
-
         @keyframes rotateDevice {
             0% { transform: rotate(0deg); }
             50% { transform: rotate(-90deg); }
             100% { transform: rotate(0deg); }
         }
-
         .tap-hint {
             margin-top: 20px;
             font-family: 'Inter', sans-serif;
@@ -85,7 +79,6 @@
             text-transform: uppercase;
             animation: pulse 1.5s infinite;
         }
-
         @keyframes pulse {
             0%, 100% { opacity: 0.3; }
             50% { opacity: 0.6; }
@@ -115,6 +108,51 @@
         <p class="font-inter text-xs text-white/40 uppercase tracking-[0.2em]">Please rotate your device to play</p>
         <div class="tap-hint">Tap screen to enable fullscreen</div>
     </div>
+
+    <!-- Farcaster Miniapp SDK -->
+    <script type="module">
+        import { sdk } from 'https://esm.sh/@farcaster/miniapp-sdk@0.2.2';
+
+        // React uygulamasının okuyabileceği global değişkenler
+        window.farcasterDataString = "";
+        window.farcasterUser = null;
+
+        (async () => {
+            try {
+                // Miniapp ortamına hazır olduğumuzu bildiriyoruz
+                await sdk.actions.ready({ disableNativeGestures: true });
+
+                const context = await sdk.context;
+                const user = context?.user || {};
+
+                const userData = {
+                    fid: user.fid || 0,
+                    username: user.username || "",
+                    displayName: user.displayName || "",
+                    pfpUrl: user.pfp?.url || user.pfpUrl || ""
+                };
+
+                window.farcasterUser = userData;
+                window.farcasterDataString = JSON.stringify(userData);
+
+                // React uygulamasına kullanıcı verisinin hazır olduğunu bildir
+                window.dispatchEvent(new CustomEvent('farcasterReady', { detail: userData }));
+
+            } catch (err) {
+                console.error("[FarcasterSDK] Error:", err);
+                // Hata durumunda da uygulamanın çalışmaya devam etmesi için event fırlat
+                window.dispatchEvent(new CustomEvent('farcasterReady', { detail: null }));
+            }
+
+            // Cast composer: React içinden window.openCastComposer("metin") şeklinde çağrılabilir
+            window.openCastComposer = function(customText = "") {
+                sdk.actions.composeCast({
+                    text: customText || "Midnight Walk'ta gece yarısı yürüyüşüne çıktım! 🌙👣 #MidnightWalk",
+                    embeds: ["https://YOUR_DEPLOY_URL_HERE"] // <-- Deploy URL'ini buraya yaz
+                }).catch(err => console.error("[FarcasterSDK] ComposeCast error:", err));
+            };
+        })();
+    </script>
 
     <script type="module" src="./index.tsx"></script>
 </body>
